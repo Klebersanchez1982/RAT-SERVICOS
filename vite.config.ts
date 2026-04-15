@@ -5,7 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === "production" ? "/RAT-SERVICOS/" : "/",
+  // Base relativa evita tela em branco no GitHub Pages quando o nome do repo muda.
+  base: mode === "production" ? "./" : "/",
   server: {
     host: "::",
     port: 8080,

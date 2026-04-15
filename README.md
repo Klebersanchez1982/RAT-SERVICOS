@@ -63,7 +63,7 @@ Este projeto pode ser publicado como frontend estático no GitHub Pages.
 
 1. Faça o deploy do backend Google Sheets/Apps Script separadamente e copie a URL do Web App.
 2. Configure a URL e o CNPJ em **Configurações** dentro do app, ou via `VITE_APPS_SCRIPT_URL` e `VITE_CNPJ` no ambiente de build.
-3. No GitHub Pages, o projeto está configurado para o repositório `RAT-SERVICOS`.
+3. O build de produção usa base relativa, então funciona em qualquer nome de repositório no GitHub Pages.
 4. Rotas internas da aplicação usam fallback via `public/404.html` para funcionar em navegação direta.
 
 Observação: o GitHub Pages hospeda apenas o frontend. O salvamento real em planilha continua dependendo do Apps Script publicado.
