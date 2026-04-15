@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 217 91% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 30% 93%;
+    --secondary-foreground: 215 25% 25%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 210 40% 90%;
+    --accent-foreground: 217 91% 35%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 217 91% 40%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 217 91% 18%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 100% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 80% 25%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 217 60% 28%;
+    --sidebar-ring: 210 100% 65%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --status-draft: 38 92% 50%;
+    --status-open: 199 89% 48%;
+    --status-progress: 217 91% 40%;
+    --status-done: 142 71% 45%;
+    --status-closed: 215 15% 50%;
+
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 217 33% 8%;
+    --foreground: 210 20% 95%;
+    --card: 217 33% 12%;
+    --card-foreground: 210 20% 95%;
+    --popover: 217 33% 12%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 210 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 30% 18%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 217 30% 18%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 217 40% 22%;
+    --accent-foreground: 210 100% 70%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 30% 22%;
+    --input: 217 30% 22%;
+    --ring: 210 100% 55%;
+    --sidebar-background: 217 40% 6%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 40% 14%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 217 30% 16%;
+    --sidebar-ring: 210 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .status-badge-draft {
+    @apply bg-[hsl(var(--status-draft))] text-[hsl(var(--warning-foreground))];
+  }
+  .status-badge-open {
+    @apply bg-[hsl(var(--status-open))] text-[hsl(var(--info-foreground))];
+  }
+  .status-badge-progress {
+    @apply bg-[hsl(var(--status-progress))] text-[hsl(var(--primary-foreground))];
+  }
+  .status-badge-done {
+    @apply bg-[hsl(var(--status-done))] text-[hsl(var(--success-foreground))];
+  }
+  .status-badge-closed {
+    @apply bg-[hsl(var(--status-closed))] text-[hsl(var(--primary-foreground))];
+  }
+}
