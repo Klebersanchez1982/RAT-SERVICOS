@@ -1,4 +1,31 @@
-export type UserRole = 'admin' | 'tecnico_interno' | 'tecnico_externo' | 'consulta';
+export type UserRole = 'admin' | 'gerente' | 'tecnico';
+
+export type AccessLevel = 'admin' | 'gerente' | 'tecnico';
+
+export type PermissionKey =
+  | 'dashboard.view'
+  | 'reports.view'
+  | 'reports.create'
+  | 'reports.edit'
+  | 'qrcode.view'
+  | 'search.view'
+  | 'clients.view'
+  | 'clients.manage'
+  | 'equipments.view'
+  | 'equipments.manage'
+  | 'vehicles.view'
+  | 'vehicles.manage'
+  | 'kits.view'
+  | 'kits.manage'
+  | 'users.view'
+  | 'users.manage'
+  | 'settings.view'
+  | 'settings.manage';
+
+export type AccessControlConfig = {
+  gerente: Record<PermissionKey, boolean>;
+  tecnico: Record<PermissionKey, boolean>;
+};
 
 export interface User {
   id: string;
@@ -45,8 +72,18 @@ export interface Vehicle {
 }
 
 export type ReportStatus = 'rascunho' | 'aberto' | 'em_andamento' | 'finalizado' | 'fechado';
-export type MaintenanceType = 'corretiva' | 'preventiva' | 'instalacao' | 'treinamento' | 'vistoria';
+export type MaintenanceType = 'corretiva' | 'preventiva' | 'instalacao' | 'treinamento' | 'vistoria' | 'garantia';
 export type PhotoCategory = 'antes' | 'durante' | 'depois';
+export type ChecklistTemplateKey = 'checklist_cu' | 'checklist_preventiva' | 'inspecao_geometria' | 'instrucao_geometrica';
+export type ChecklistStatus = 'pendente' | 'em_preenchimento' | 'concluido';
+export type ChecklistItemResult = 'pendente' | 'conforme' | 'nao_conforme' | 'na';
+
+export interface ChecklistAnswer {
+  itemId: string;
+  itemLabel: string;
+  resultado: ChecklistItemResult;
+  observacao: string;
+}
 
 export interface ReportPhoto {
   id: string;
@@ -63,6 +100,22 @@ export interface ReportPart {
   descricao: string;
   quantidade: number;
   observacao: string;
+  origem?: 'kit' | 'avulso';
+  kitId?: string;
+  kitNome?: string;
+}
+
+export interface PartKit {
+  id: string;
+  nome: string;
+  descricao: string;
+  tecnicoId: string;
+  tecnicoNome: string;
+  pecas: Array<{
+    descricao: string;
+    quantidade: number;
+    observacao?: string;
+  }>;
 }
 
 export interface Report {
@@ -86,6 +139,15 @@ export interface Report {
   horasTrabalho: number;
   deslocamentoIda: string;
   deslocamentoVolta: string;
+  checklistModelo?: ChecklistTemplateKey;
+  checklistStatus?: ChecklistStatus;
+  checklistRespostas?: ChecklistAnswer[];
+  checklistObservacoesGerais?: string;
+  checklistLinkExterno?: string;
+  checklistArquivoNome?: string;
+  checklistArquivoUrl?: string;
+  checklistCapaNome?: string;
+  checklistCapaUrl?: string;
   veiculoId: string;
   veiculoDescricao: string;
   placa: string;

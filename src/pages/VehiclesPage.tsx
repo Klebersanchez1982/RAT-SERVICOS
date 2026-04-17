@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { Lock, LockOpen, Pencil, Plus, Car } from "lucide-react";
-import { getVehicles, saveVehicle, setVehicleBlocked, updateVehicle } from "@/lib/api-service";
+import { getVehicles, hasPermission, saveVehicle, setVehicleBlocked, updateVehicle } from "@/lib/api-service";
 import { Vehicle } from "@/lib/types";
 import { formatVehiclePlate } from "@/lib/utils";
 
 export default function VehiclesPage() {
+  const canManageVehicles = hasPermission("vehicles.manage");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
@@ -41,12 +42,14 @@ export default function VehiclesPage() {
   }
 
   function openCreateDialog() {
+    if (!canManageVehicles) return;
     setEditingVehicleId(null);
     resetForm();
     setIsDialogOpen(true);
   }
 
   function openEditDialog(vehicle: Vehicle) {
+    if (!canManageVehicles) return;
     setEditingVehicleId(vehicle.id);
     setFormVehicle({
       descricao: vehicle.descricao,
@@ -64,6 +67,11 @@ export default function VehiclesPage() {
 
   async function handleSaveVehicle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!canManageVehicles) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode gerenciar veículos.", variant: "destructive" });
+      return;
+    }
 
     if (!formVehicle.descricao.trim() || !formVehicle.placa.trim()) {
       toast({
@@ -123,6 +131,11 @@ export default function VehiclesPage() {
   }
 
   async function handleToggleBlocked(vehicle: Vehicle) {
+    if (!canManageVehicles) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode alterar status de veículos.", variant: "destructive" });
+      return;
+    }
+
     try {
       const updated = await setVehicleBlocked(vehicle.id, vehicle.ativo);
       if (!updated) {
@@ -160,7 +173,7 @@ export default function VehiclesPage() {
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Car className="h-6 w-6 text-primary" />Veículos</h1>
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>
+          {canManageVehicles && <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {displayedVehicles.map(v => (
@@ -173,13 +186,17 @@ export default function VehiclesPage() {
                 <p className="text-sm text-muted-foreground">{v.modelo} • {v.ano}</p>
                 <p className="text-sm font-mono font-medium mt-1">{v.placa}</p>
                 <div className="flex items-center gap-2 mt-3">
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(v)}>
-                    <Pencil className="h-3.5 w-3.5 mr-1" />Editar
-                  </Button>
-                  <Button size="sm" variant={v.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(v)}>
-                    {v.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
-                    {v.ativo ? "Bloquear" : "Desbloquear"}
-                  </Button>
+                  {canManageVehicles && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(v)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+                      </Button>
+                      <Button size="sm" variant={v.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(v)}>
+                        {v.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
+                        {v.ativo ? "Bloquear" : "Desbloquear"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -228,7 +245,7 @@ export default function VehiclesPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
+                <Button type="submit" disabled={isSaving || !canManageVehicles}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

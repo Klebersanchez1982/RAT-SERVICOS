@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { Lock, LockOpen, Pencil, Plus, Search, Building2 } from "lucide-react";
-import { getClients, saveClient, setClientBlocked, updateClient } from "@/lib/api-service";
+import { getClients, hasPermission, saveClient, setClientBlocked, updateClient } from "@/lib/api-service";
 import { Client } from "@/lib/types";
 import { formatCnpj, formatPhoneBr } from "@/lib/utils";
 
 export default function ClientsPage() {
+  const canManageClients = hasPermission("clients.manage");
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -58,12 +59,14 @@ export default function ClientsPage() {
   }
 
   function openCreateDialog() {
+    if (!canManageClients) return;
     setEditingClientId(null);
     resetForm();
     setIsDialogOpen(true);
   }
 
   function openEditDialog(client: Client) {
+    if (!canManageClients) return;
     setEditingClientId(client.id);
     setFormClient({
       nomeFantasia: client.nomeFantasia,
@@ -86,6 +89,11 @@ export default function ClientsPage() {
 
   async function handleSaveClient(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!canManageClients) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode gerenciar clientes.", variant: "destructive" });
+      return;
+    }
 
     if (!formClient.nomeFantasia.trim() || !formClient.cnpj.trim()) {
       toast({
@@ -150,6 +158,11 @@ export default function ClientsPage() {
   }
 
   async function handleToggleBlocked(client: Client) {
+    if (!canManageClients) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode alterar status de clientes.", variant: "destructive" });
+      return;
+    }
+
     try {
       const updated = await setClientBlocked(client.id, client.ativo);
       if (!updated) {
@@ -192,7 +205,7 @@ export default function ClientsPage() {
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />Clientes</h1>
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>
+          {canManageClients && <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -214,13 +227,17 @@ export default function ClientsPage() {
                   <span>{c.contato}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-3">
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(c)}>
-                    <Pencil className="h-3.5 w-3.5 mr-1" />Editar
-                  </Button>
-                  <Button size="sm" variant={c.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(c)}>
-                    {c.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
-                    {c.ativo ? "Bloquear" : "Desbloquear"}
-                  </Button>
+                  {canManageClients && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(c)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+                      </Button>
+                      <Button size="sm" variant={c.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(c)}>
+                        {c.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
+                        {c.ativo ? "Bloquear" : "Desbloquear"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -289,7 +306,7 @@ export default function ClientsPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
+                <Button type="submit" disabled={isSaving || !canManageClients}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

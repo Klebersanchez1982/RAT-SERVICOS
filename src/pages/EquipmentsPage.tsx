@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { Lock, LockOpen, Pencil, Plus, Search, Wrench } from "lucide-react";
-import { getClients, getEquipments, saveEquipment, setEquipmentBlocked, updateEquipment } from "@/lib/api-service";
+import { getClients, getEquipments, hasPermission, saveEquipment, setEquipmentBlocked, updateEquipment } from "@/lib/api-service";
 import { Client, Equipment } from "@/lib/types";
 
 export default function EquipmentsPage() {
+  const canManageEquipments = hasPermission("equipments.manage");
   const [clients, setClients] = useState<Client[]>([]);
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [search, setSearch] = useState("");
@@ -62,12 +63,14 @@ export default function EquipmentsPage() {
   }
 
   function openCreateDialog() {
+    if (!canManageEquipments) return;
     setEditingEquipmentId(null);
     resetForm();
     setIsDialogOpen(true);
   }
 
   function openEditDialog(equipment: Equipment) {
+    if (!canManageEquipments) return;
     setEditingEquipmentId(equipment.id);
     setFormEquipment({
       clienteId: equipment.clienteId,
@@ -89,6 +92,11 @@ export default function EquipmentsPage() {
 
   async function handleSaveEquipment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!canManageEquipments) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode gerenciar equipamentos.", variant: "destructive" });
+      return;
+    }
 
     if (!formEquipment.descricao.trim() || !formEquipment.numeroSerie.trim()) {
       toast({
@@ -152,6 +160,11 @@ export default function EquipmentsPage() {
   }
 
   async function handleToggleBlocked(equipment: Equipment) {
+    if (!canManageEquipments) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode alterar status de equipamentos.", variant: "destructive" });
+      return;
+    }
+
     try {
       const updated = await setEquipmentBlocked(equipment.id, equipment.ativo);
       if (!updated) {
@@ -194,7 +207,7 @@ export default function EquipmentsPage() {
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Wrench className="h-6 w-6 text-primary" />Equipamentos</h1>
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>
+          {canManageEquipments && <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -216,13 +229,17 @@ export default function EquipmentsPage() {
                   <span>Local: {e.localizacao}</span>
                 </div>
                 <div className="flex items-center gap-2 mt-3">
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(e)}>
-                    <Pencil className="h-3.5 w-3.5 mr-1" />Editar
-                  </Button>
-                  <Button size="sm" variant={e.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(e)}>
-                    {e.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
-                    {e.ativo ? "Bloquear" : "Desbloquear"}
-                  </Button>
+                  {canManageEquipments && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(e)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+                      </Button>
+                      <Button size="sm" variant={e.ativo ? "destructive" : "outline"} onClick={() => handleToggleBlocked(e)}>
+                        {e.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
+                        {e.ativo ? "Bloquear" : "Desbloquear"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -308,7 +325,7 @@ export default function EquipmentsPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
+                <Button type="submit" disabled={isSaving || !canManageEquipments}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

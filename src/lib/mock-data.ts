@@ -1,11 +1,11 @@
-import { Client, Equipment, Vehicle, Report, User } from './types';
+import { Client, Equipment, Vehicle, Report, User, PartKit } from './types';
 
 export const mockUsers: User[] = [
   { id: '1', nome: 'Admin Sistema', email: 'admin@empresa.com', perfil: 'admin', ativo: true },
   { id: '4', nome: 'Suporte TI', email: 'suporte.ti@manutexcnc.com.br', perfil: 'admin', ativo: true },
   { id: '5', nome: 'Sanchez', email: 'sanchez@empresa.com', perfil: 'admin', ativo: true },
-  { id: '2', nome: 'Carlos Silva', email: 'carlos@empresa.com', perfil: 'tecnico_externo', ativo: true },
-  { id: '3', nome: 'João Santos', email: 'joao@empresa.com', perfil: 'tecnico_interno', ativo: true },
+  { id: '2', nome: 'Carlos Silva', email: 'carlos@empresa.com', perfil: 'tecnico', ativo: true },
+  { id: '3', nome: 'João Santos', email: 'joao@empresa.com', perfil: 'gerente', ativo: true },
 ];
 
 export const mockClients: Client[] = [
@@ -24,6 +24,33 @@ export const mockVehicles: Vehicle[] = [
   { id: '2', descricao: 'Saveiro Cabine Dupla', placa: 'DEF-5678', modelo: 'VW Saveiro', ano: '2023', ativo: true },
 ];
 
+export const mockPartKits: PartKit[] = [
+  {
+    id: '1',
+    nome: 'Kit Preventivo Básico',
+    descricao: 'Conjunto padrão para intervenções preventivas e inspeções leves.',
+    tecnicoId: '2',
+    tecnicoNome: 'Carlos Silva',
+    pecas: [
+      { descricao: 'Filtro de óleo', quantidade: 1, observacao: '' },
+      { descricao: 'Correia industrial', quantidade: 1, observacao: '' },
+      { descricao: 'Rolamento SKF 6205', quantidade: 2, observacao: '' },
+    ],
+  },
+  {
+    id: '2',
+    nome: 'Kit Corretiva Pesada',
+    descricao: 'Itens mais comuns para manutenção corretiva em campo.',
+    tecnicoId: '3',
+    tecnicoNome: 'João Santos',
+    pecas: [
+      { descricao: 'Sensor indutivo', quantidade: 1, observacao: '' },
+      { descricao: 'Fusível 10A', quantidade: 2, observacao: '' },
+      { descricao: 'Terminal elétrico', quantidade: 10, observacao: '' },
+    ],
+  },
+];
+
 export const mockReports: Report[] = [
   {
     id: '1', numero: 'RAT-2025-0001', dataAbertura: '2025-01-15', horaAbertura: '08:30',
@@ -33,7 +60,7 @@ export const mockReports: Report[] = [
     problemaRelatado: 'Máquina apresentando vibração excessiva durante operação.',
     diagnostico: 'Rolamento do eixo principal desgastado.',
     servicoExecutado: 'Substituição do rolamento do eixo principal e alinhamento.',
-    pecas: [{ id: '1', descricao: 'Rolamento SKF 6205', quantidade: 2, observacao: '' }],
+    pecas: [{ id: '1', descricao: 'Rolamento SKF 6205', quantidade: 2, observacao: '', origem: 'kit', kitId: '1', kitNome: 'Kit Preventivo Básico' }],
     informacoesAdicionais: 'Recomendado manutenção preventiva em 90 dias.',
     horasTrabalho: 4, deslocamentoIda: '08:00', deslocamentoVolta: '17:00',
     veiculoId: '1', veiculoDescricao: 'Fiorino Furgão', placa: 'ABC-1234',

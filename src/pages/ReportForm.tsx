@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, ArrowRight, Save, Send, Plus, Trash2, Camera, X } from "lucide-react";
 import {
   deleteReportPhoto,
+  getCurrentUser,
   getClients,
   getEquipments,
+  getPartKits,
   getReportById,
   getReportPhotos,
   getVehicles,
@@ -19,8 +21,11 @@ import {
   saveReport,
   uploadReportPhoto,
 } from "@/lib/api-service";
-import { Client, Equipment, Vehicle, Report, MaintenanceType, ReportPart, PhotoCategory, ReportPhoto } from "@/lib/types";
+import { Client, Equipment, Vehicle, Report, MaintenanceType, ReportPart, PhotoCategory, ReportPhoto, PartKit, ChecklistTemplateKey, ChecklistStatus } from "@/lib/types";
+import { checklistTemplates } from "@/lib/checklist-templates";
 import { toast } from "sonner";
+
+const NEW_REPORT_DRAFT_STORAGE_KEY = 'rat-report-draft-new';
 
 const steps = [
   { id: 1, title: "Informações Gerais" },
@@ -28,25 +33,31 @@ const steps = [
   { id: 3, title: "Serviço" },
   { id: 4, title: "Peças e Materiais" },
   { id: 5, title: "Deslocamento" },
-  { id: 6, title: "Fotos" },
-  { id: 7, title: "Revisão" },
+  { id: 6, title: "Checklist" },
+  { id: 7, title: "Fotos" },
+  { id: 8, title: "Revisão" },
 ];
 
 export default function ReportForm() {
+  const currentUser = getCurrentUser();
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [clients, setClients] = useState<Client[]>([]);
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [partKits, setPartKits] = useState<PartKit[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [selectedKitId, setSelectedKitId] = useState('');
   const isEditing = Boolean(id);
 
   const [form, setForm] = useState<Partial<Report>>({
     tipoManutencao: 'corretiva',
     pecas: [],
     fotos: [],
+    checklistStatus: 'pendente',
     horasTrabalho: 0,
     pedagio: 0,
     refeicao: 0,
@@ -54,10 +65,18 @@ export default function ReportForm() {
   });
 
   useEffect(() => {
+    const stepParam = Number(searchParams.get('step'));
+    if (Number.isFinite(stepParam) && stepParam >= 1 && stepParam <= steps.length) {
+      setStep(stepParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     Promise.all([getClients(), getVehicles()]).then(([c, v]) => {
       setClients(c);
       setVehicles(v);
     });
+    getPartKits().then(setPartKits);
     if (id) {
       getReportById(id).then(r => { if (r) setForm(r); });
       if (isRemoteBackendEnabled()) {
@@ -65,8 +84,30 @@ export default function ReportForm() {
           setForm(prev => ({ ...prev, fotos: photos }));
         });
       }
+    } else {
+      const rawDraft = localStorage.getItem(NEW_REPORT_DRAFT_STORAGE_KEY);
+      if (rawDraft) {
+        try {
+          const draft = JSON.parse(rawDraft) as Partial<Report>;
+          setForm(prev => ({
+            ...prev,
+            ...draft,
+            tecnicoId: draft.tecnicoId || currentUser.id,
+            tecnicoNome: draft.tecnicoNome || currentUser.nome,
+          }));
+          return;
+        } catch {
+          localStorage.removeItem(NEW_REPORT_DRAFT_STORAGE_KEY);
+        }
+      }
+
+      setForm(prev => ({
+        ...prev,
+        tecnicoId: currentUser.id,
+        tecnicoNome: currentUser.nome,
+      }));
     }
-  }, [id]);
+  }, [id, currentUser.id, currentUser.nome]);
 
   useEffect(() => {
     if (form.clienteId) {
@@ -82,9 +123,37 @@ export default function ReportForm() {
     return clients.filter(client => client.ativo || client.id === form.clienteId);
   }, [clients, form.clienteId]);
 
+  const availablePartKits = useMemo(() => {
+    return partKits.filter(kit => kit.tecnicoId === currentUser.id);
+  }, [partKits, currentUser.id]);
+
   const update = useCallback((field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
   }, []);
+
+  const currentChecklistAnswers = useMemo(() => {
+    const templateKey = form.checklistModelo;
+    if (!templateKey) return [];
+    return (form.checklistRespostas || []).filter(answer => answer.itemId.startsWith(`${templateKey}:`));
+  }, [form.checklistModelo, form.checklistRespostas]);
+
+  const openChecklistScreen = (templateKey: ChecklistTemplateKey) => {
+    const draft: Partial<Report> = {
+      ...form,
+      checklistModelo: templateKey,
+      checklistStatus: form.checklistStatus || 'em_preenchimento',
+      tecnicoId: form.tecnicoId || currentUser.id,
+      tecnicoNome: form.tecnicoNome || currentUser.nome,
+    };
+
+    if (!id) {
+      localStorage.setItem(NEW_REPORT_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      navigate(`/relatorios/checklist/${templateKey}`);
+      return;
+    }
+
+    navigate(`/relatorios/${id}/checklist/${templateKey}`);
+  };
 
   const handleClientChange = (clienteId: string) => {
     const client = clients.find(c => c.id === clienteId);
@@ -109,9 +178,27 @@ export default function ReportForm() {
     update('placa', v?.placa || '');
   };
 
-  const addPart = () => {
-    const pecas = [...(form.pecas || []), { id: String(Date.now()), descricao: '', quantidade: 1, observacao: '' }];
+  const addPart = (origem: 'kit' | 'avulso') => {
+    const pecas = [...(form.pecas || []), { id: String(Date.now()), descricao: '', quantidade: 1, observacao: '', origem }];
     update('pecas', pecas);
+  };
+
+  const addKit = (kitId: string) => {
+    const kit = availablePartKits.find(item => item.id === kitId);
+    if (!kit) return;
+
+    const kitParts: ReportPart[] = kit.pecas.map((part, index) => ({
+      id: `${kit.id}-${Date.now()}-${index}`,
+      descricao: part.descricao,
+      quantidade: part.quantidade,
+      observacao: part.observacao || '',
+      origem: 'kit',
+      kitId: kit.id,
+      kitNome: kit.nome,
+    }));
+
+    update('pecas', [...(form.pecas || []), ...kitParts]);
+    setSelectedKitId('');
   };
 
   const removePart = (partId: string) => {
@@ -170,7 +257,12 @@ export default function ReportForm() {
   const handleSave = async (status?: 'rascunho' | 'aberto' | 'finalizado') => {
     setSaving(true);
     try {
-      const saved = await saveReport({ ...form, ...(status ? { status } : {}) });
+      const saved = await saveReport({
+        ...form,
+        tecnicoId: form.tecnicoId || currentUser.id,
+        tecnicoNome: form.tecnicoNome || currentUser.nome,
+        ...(status ? { status } : {}),
+      });
 
       const pendingPhotos = (form.fotos || []).filter(photo => isDataUrl(photo.url));
       if (saved.id && pendingPhotos.length > 0 && isRemoteBackendEnabled()) {
@@ -201,6 +293,11 @@ export default function ReportForm() {
       } else {
         toast.success(isEditing ? 'Relatório atualizado!' : 'Relatório enviado!');
       }
+
+      if (!id) {
+        localStorage.removeItem(NEW_REPORT_DRAFT_STORAGE_KEY);
+      }
+
       navigate('/relatorios');
     } catch {
       toast.error('Erro ao salvar.');
@@ -340,8 +437,9 @@ export default function ReportForm() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="corretiva">Corretiva</SelectItem>
-                      <SelectItem value="preventiva">Preventiva</SelectItem>
+                      <SelectItem value="garantia">Garantia</SelectItem>
                       <SelectItem value="instalacao">Instalação</SelectItem>
+                      <SelectItem value="preventiva">Preventiva</SelectItem>
                       <SelectItem value="treinamento">Treinamento</SelectItem>
                       <SelectItem value="vistoria">Vistoria</SelectItem>
                     </SelectContent>
@@ -398,9 +496,6 @@ export default function ReportForm() {
               <div><Label>Informações Adicionais</Label>
                 <Textarea value={form.informacoesAdicionais || ''} onChange={e => update('informacoesAdicionais', e.target.value)} placeholder="Observações, recomendações..." rows={3} />
               </div>
-              <div><Label>Horas de Trabalho</Label>
-                <Input type="number" value={form.horasTrabalho || 0} onChange={e => update('horasTrabalho', Number(e.target.value))} min={0} step={0.5} />
-              </div>
             </CardContent>
           </Card>
         )}
@@ -408,28 +503,81 @@ export default function ReportForm() {
         {/* Step 4: Parts */}
         {step === 4 && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
               <CardTitle>Peças e Materiais</CardTitle>
-              <Button size="sm" variant="outline" onClick={addPart}><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
+              <div className="flex flex-wrap gap-2 justify-end items-center">
+                <Select value={selectedKitId} onValueChange={setSelectedKitId}>
+                  <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecionar kit" /></SelectTrigger>
+                  <SelectContent>
+                    {availablePartKits.map(kit => (
+                      <SelectItem key={kit.id} value={kit.id}>{kit.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={() => selectedKitId && addKit(selectedKitId)} disabled={!selectedKitId}>
+                  <Plus className="h-4 w-4 mr-1" />Adicionar kit
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => addPart('avulso')}><Plus className="h-4 w-4 mr-1" />Avulso</Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {(form.pecas || []).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma peça adicionada.</p>
               )}
-              {(form.pecas || []).map(part => (
-                <div key={part.id} className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg">
-                  <div className="flex-1 space-y-2">
-                    <Input placeholder="Descrição da peça" value={part.descricao} onChange={e => updatePart(part.id, 'descricao', e.target.value)} />
-                    <div className="flex gap-2">
-                      <Input type="number" placeholder="Qtd" value={part.quantidade} onChange={e => updatePart(part.id, 'quantidade', Number(e.target.value))} className="w-20" min={1} />
-                      <Input placeholder="Observação" value={part.observacao} onChange={e => updatePart(part.id, 'observacao', e.target.value)} />
+              {([...new Map((form.pecas || []).filter(part => part.origem === 'kit').map(part => [part.kitId || part.kitNome || 'Kit', part.kitNome || 'Kit'])).entries()] as Array<[string, string]>).map(([kitKey, kitNome]) => {
+                const itens = (form.pecas || []).filter(part => (part.origem || 'avulso') === 'kit' && (part.kitId || part.kitNome || 'Kit') === kitKey);
+
+                if (itens.length === 0) return null;
+
+                return (
+                  <div key={kitKey} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">{kitNome}</h3>
+                      <span className="text-xs text-muted-foreground">{itens.length} item(ns)</span>
+                    </div>
+                    <div className="space-y-2">
+                      {itens.map(part => (
+                        <div key={part.id} className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg">
+                          <div className="flex-1 space-y-2">
+                            <Input placeholder="Descrição da peça" value={part.descricao} onChange={e => updatePart(part.id, 'descricao', e.target.value)} />
+                            <div className="flex gap-2">
+                              <Input type="number" placeholder="Qtd" value={part.quantidade} onChange={e => updatePart(part.id, 'quantidade', Number(e.target.value))} className="w-20" min={1} />
+                              <Input placeholder="Observação" value={part.observacao} onChange={e => updatePart(part.id, 'observacao', e.target.value)} />
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" onClick={() => removePart(part.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => removePart(part.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                );
+              })}
+              {((form.pecas || []).filter(part => (part.origem || 'avulso') === 'avulso').length > 0) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Itens avulsos</h3>
+                    <span className="text-xs text-muted-foreground">{(form.pecas || []).filter(part => (part.origem || 'avulso') === 'avulso').length} item(ns)</span>
+                  </div>
+                  <div className="space-y-2">
+                    {(form.pecas || []).filter(part => (part.origem || 'avulso') === 'avulso').map(part => (
+                      <div key={part.id} className="flex gap-2 items-start p-3 bg-muted/50 rounded-lg">
+                        <div className="flex-1 space-y-2">
+                          <Input placeholder="Descrição da peça" value={part.descricao} onChange={e => updatePart(part.id, 'descricao', e.target.value)} />
+                          <div className="flex gap-2">
+                            <Input type="number" placeholder="Qtd" value={part.quantidade} onChange={e => updatePart(part.id, 'quantidade', Number(e.target.value))} className="w-20" min={1} />
+                            <Input placeholder="Observação" value={part.observacao} onChange={e => updatePart(part.id, 'observacao', e.target.value)} />
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => removePart(part.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         )}
@@ -476,8 +624,55 @@ export default function ReportForm() {
           </Card>
         )}
 
-        {/* Step 6: Photos */}
+        {/* Step 6: Checklist */}
         {step === 6 && (
+          <Card>
+            <CardHeader><CardTitle>Checklist</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Modelo de checklist</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {checklistTemplates.map(template => (
+                    <Button
+                      key={template.key}
+                      type="button"
+                      variant={form.checklistModelo === template.key ? 'default' : 'outline'}
+                      onClick={() => openChecklistScreen(template.key)}
+                      className="justify-start"
+                    >
+                      {template.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Ao clicar no modelo, abre a tela de preenchimento específico automaticamente.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Status do checklist</Label>
+                  <Select value={form.checklistStatus || 'pendente'} onValueChange={(value) => update('checklistStatus', value as ChecklistStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="em_preenchimento">Em preenchimento</SelectItem>
+                      <SelectItem value="concluido">Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Itens respondidos</Label>
+                  <Input
+                    readOnly
+                    value={`${currentChecklistAnswers.filter(answer => answer.resultado !== 'pendente').length}/${currentChecklistAnswers.length}`}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 7: Photos */}
+        {step === 7 && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Fotos</CardTitle>
@@ -525,8 +720,8 @@ export default function ReportForm() {
           </Card>
         )}
 
-        {/* Step 7: Review */}
-        {step === 7 && (
+        {/* Step 8: Review */}
+        {step === 8 && (
           <Card>
             <CardHeader><CardTitle>Revisão do Relatório</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -538,8 +733,10 @@ export default function ReportForm() {
                 <div className="col-span-full"><span className="text-muted-foreground">Problema:</span> <p className="font-medium mt-1">{form.problemaRelatado || '—'}</p></div>
                 <div className="col-span-full"><span className="text-muted-foreground">Diagnóstico:</span> <p className="font-medium mt-1">{form.diagnostico || '—'}</p></div>
                 <div className="col-span-full"><span className="text-muted-foreground">Serviço:</span> <p className="font-medium mt-1">{form.servicoExecutado || '—'}</p></div>
-                <div><span className="text-muted-foreground">Horas:</span> <span className="font-medium">{form.horasTrabalho || 0}h</span></div>
-                <div><span className="text-muted-foreground">Peças:</span> <span className="font-medium">{(form.pecas || []).length} itens</span></div>
+                <div><span className="text-muted-foreground">Kits usados:</span> <span className="font-medium">{new Set((form.pecas || []).filter(p => p.origem === 'kit').map(p => p.kitNome || 'Kit')).size}</span></div>
+                <div><span className="text-muted-foreground">Peças avulsas:</span> <span className="font-medium">{(form.pecas || []).filter(p => (p.origem || 'avulso') === 'avulso').length} itens</span></div>
+                <div><span className="text-muted-foreground">Checklist:</span> <span className="font-medium">{checklistTemplates.find(t => t.key === form.checklistModelo)?.label || '—'}</span></div>
+                <div><span className="text-muted-foreground">Status checklist:</span> <span className="font-medium capitalize">{(form.checklistStatus || 'pendente').replace('_', ' ')}</span></div>
                 <div><span className="text-muted-foreground">Veículo:</span> <span className="font-medium">{form.veiculoDescricao || '—'} {form.placa}</span></div>
                 <div><span className="text-muted-foreground">Despesas:</span> <span className="font-medium">R$ {((form.pedagio || 0) + (form.refeicao || 0) + (form.estadia || 0)).toFixed(2)}</span></div>
                 <div><span className="text-muted-foreground">Fotos:</span> <span className="font-medium">{(form.fotos || []).length}</span></div>
@@ -578,6 +775,7 @@ export default function ReportForm() {
           )}
         </div>
       </div>
+
     </AppLayout>
   );
 }

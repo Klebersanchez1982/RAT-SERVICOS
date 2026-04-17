@@ -15,8 +15,8 @@
  * }
  */
 
-import { mockClients, mockEquipments, mockVehicles, mockReports, mockUsers, currentUser } from './mock-data';
-import { Client, Equipment, Vehicle, Report, ReportPhoto, User, ReportStatus } from './types';
+import { mockClients, mockEquipments, mockVehicles, mockReports, mockUsers, mockPartKits, currentUser } from './mock-data';
+import { Client, Equipment, Vehicle, Report, ReportPhoto, User, ReportStatus, PartKit, AccessControlConfig, AccessLevel, PermissionKey } from './types';
 
 // Simula delay de rede
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -24,6 +24,8 @@ const USERS_STORAGE_KEY = 'rat-users';
 const USER_PASSWORDS_STORAGE_KEY = 'rat-user-passwords';
 const AUTH_STORAGE_KEY = 'rat-auth-user';
 const RUNTIME_SETTINGS_STORAGE_KEY = 'rat-runtime-settings';
+const PART_KITS_STORAGE_KEY = 'rat-part-kits';
+const ACCESS_CONTROL_STORAGE_KEY = 'rat-access-control';
 
 type RuntimeSettings = {
   appsScriptUrl: string;
@@ -57,6 +59,72 @@ type RemoteReportPhotoInput = Partial<ReportPhoto> & {
   criado_em?: string;
 };
 
+type StoredPartKit = PartKit;
+
+const allPermissionKeys: PermissionKey[] = [
+  'dashboard.view',
+  'reports.view',
+  'reports.create',
+  'reports.edit',
+  'qrcode.view',
+  'search.view',
+  'clients.view',
+  'clients.manage',
+  'equipments.view',
+  'equipments.manage',
+  'vehicles.view',
+  'vehicles.manage',
+  'kits.view',
+  'kits.manage',
+  'users.view',
+  'users.manage',
+  'settings.view',
+  'settings.manage',
+];
+
+const defaultAccessControl: AccessControlConfig = {
+  gerente: {
+    'dashboard.view': true,
+    'reports.view': true,
+    'reports.create': true,
+    'reports.edit': true,
+    'qrcode.view': true,
+    'search.view': true,
+    'clients.view': true,
+    'clients.manage': true,
+    'equipments.view': true,
+    'equipments.manage': true,
+    'vehicles.view': true,
+    'vehicles.manage': true,
+    'kits.view': true,
+    'kits.manage': true,
+    'users.view': false,
+    'users.manage': false,
+    'settings.view': false,
+    'settings.manage': false,
+  },
+  tecnico: {
+    'dashboard.view': true,
+    'reports.view': true,
+    'reports.create': false,
+    'reports.edit': false,
+    'qrcode.view': true,
+    'search.view': true,
+    'clients.view': true,
+    'clients.manage': false,
+    'equipments.view': true,
+    'equipments.manage': false,
+    'vehicles.view': true,
+    'vehicles.manage': false,
+    'kits.view': true,
+    'kits.manage': false,
+    'users.view': false,
+    'users.manage': false,
+    'settings.view': false,
+    'settings.manage': false,
+  },
+};
+
 function getDefaultRuntimeSettings(): RuntimeSettings {
   return {
     appsScriptUrl: ((import.meta as any).env?.VITE_APPS_SCRIPT_URL || '').trim(),
@@ -82,6 +150,75 @@ function getStoredRuntimeSettings(): Partial<RuntimeSettings> {
   }
 }
 
+function getStoredPartKits(): PartKit[] {
+  if (typeof window === 'undefined') return [...mockPartKits];
+
+  const raw = localStorage.getItem(PART_KITS_STORAGE_KEY);
+  if (!raw) return [...mockPartKits];
+
+  try {
+    const parsed = JSON.parse(raw) as StoredPartKit[];
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((kit, index) => normalizePartKit(kit, String(index + 1)));
+    }
+    return [...mockPartKits];
+  } catch {
+    localStorage.removeItem(PART_KITS_STORAGE_KEY);
+    return [...mockPartKits];
+  }
+}
+
+function persistPartKits(kits: PartKit[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PART_KITS_STORAGE_KEY, JSON.stringify(kits));
+}
+
+function normalizeAccessControl(config?: Partial<AccessControlConfig>): AccessControlConfig {
+  const source = (config || {}) as Partial<AccessControlConfig> & {
+    nivel_2?: Record<PermissionKey, boolean>;
+    nivel_3?: Record<PermissionKey, boolean>;
+  };
+
+  const normalized: AccessControlConfig = {
+    gerente: { ...defaultAccessControl.gerente },
+    tecnico: { ...defaultAccessControl.tecnico },
+  };
+
+  allPermissionKeys.forEach((permission) => {
+    if (source.gerente && typeof source.gerente[permission] === 'boolean') {
+      normalized.gerente[permission] = source.gerente[permission];
+    }
+    if (source.tecnico && typeof source.tecnico[permission] === 'boolean') {
+      normalized.tecnico[permission] = source.tecnico[permission];
+    }
+
+    // Migração de chaves legadas
+    if (source.nivel_2 && typeof source.nivel_2[permission] === 'boolean') {
+      normalized.gerente[permission] = source.nivel_2[permission];
+    }
+    if (source.nivel_3 && typeof source.nivel_3[permission] === 'boolean') {
+      normalized.tecnico[permission] = source.nivel_3[permission];
+    }
+  });
+
+  return normalized;
+}
+
+function getStoredAccessControl(): AccessControlConfig {
+  if (typeof window === 'undefined') return defaultAccessControl;
+
+  const raw = localStorage.getItem(ACCESS_CONTROL_STORAGE_KEY);
+  if (!raw) return defaultAccessControl;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AccessControlConfig>;
+    return normalizeAccessControl(parsed);
+  } catch {
+    localStorage.removeItem(ACCESS_CONTROL_STORAGE_KEY);
+    return defaultAccessControl;
+  }
+}
+
 export function getRuntimeSettings(): RuntimeSettings {
   return {
     ...getDefaultRuntimeSettings(),
@@ -90,6 +227,10 @@ export function getRuntimeSettings(): RuntimeSettings {
 }
 
 export function saveRuntimeSettings(settings: Partial<RuntimeSettings>): RuntimeSettings {
+  if (getCurrentUser().perfil !== 'admin') {
+    throw new Error('Apenas administradores podem alterar configurações.');
+  }
+
   const merged = {
     ...getRuntimeSettings(),
     ...settings,
@@ -100,6 +241,42 @@ export function saveRuntimeSettings(settings: Partial<RuntimeSettings>): Runtime
   }
 
   return merged;
+}
+
+export function getAccessControlConfig(): AccessControlConfig {
+  return getStoredAccessControl();
+}
+
+export function saveAccessControlConfig(config: Partial<AccessControlConfig>): AccessControlConfig {
+  if (getCurrentUser().perfil !== 'admin') {
+    throw new Error('Apenas administradores podem alterar permissões.');
+  }
+
+  const merged = normalizeAccessControl({
+    ...getStoredAccessControl(),
+    ...config,
+  });
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(ACCESS_CONTROL_STORAGE_KEY, JSON.stringify(merged));
+  }
+
+  return merged;
+}
+
+export function getAccessLevel(user?: User): AccessLevel {
+  const target = user || getCurrentUser();
+  if (target.perfil === 'admin') return 'admin';
+  if (target.perfil === 'gerente') return 'gerente';
+  return 'tecnico';
+}
+
+export function hasPermission(permission: PermissionKey, user?: User): boolean {
+  const level = getAccessLevel(user);
+  if (level === 'admin') return true;
+
+  const config = getStoredAccessControl();
+  return config[level][permission] ?? false;
 }
 
 function parseBoolean(value: unknown, fallback = true): boolean {
@@ -147,13 +324,47 @@ function normalizeEquipment(input: RemoteEquipmentInput, fallbackId: string): Eq
   };
 }
 
+function normalizeLegacyUserRole(role: unknown): User['perfil'] {
+  if (role === 'admin' || role === 'gerente' || role === 'tecnico') return role;
+  if (role === 'tecnico_interno') return 'gerente';
+  if (role === 'tecnico_externo' || role === 'consulta') return 'tecnico';
+  return 'tecnico';
+}
+
 function normalizeUser(input: RemoteUserInput, fallbackId: string): User {
   return {
     id: String(input.id ?? fallbackId),
     nome: String(input.nome || ''),
     email: String(input.email || ''),
-    perfil: (input.perfil as User['perfil']) || 'consulta',
+    perfil: normalizeLegacyUserRole(input.perfil),
     ativo: parseBoolean(input.ativo, true),
+  };
+}
+
+function getKitOwnerFallback() {
+  const tecnico = mockUsers.find(user => user.perfil === 'tecnico' || user.perfil === 'gerente');
+  if (tecnico) return { tecnicoId: tecnico.id, tecnicoNome: tecnico.nome };
+
+  const admin = mockUsers.find(user => user.perfil === 'admin');
+  if (admin) return { tecnicoId: admin.id, tecnicoNome: admin.nome };
+
+  return { tecnicoId: '', tecnicoNome: '' };
+}
+
+function normalizePartKit(input: Partial<PartKit>, fallbackId: string): PartKit {
+  const ownerFallback = getKitOwnerFallback();
+
+  return {
+    id: String(input.id ?? fallbackId),
+    nome: String(input.nome || ''),
+    descricao: String(input.descricao || ''),
+    tecnicoId: String(input.tecnicoId || ownerFallback.tecnicoId),
+    tecnicoNome: String(input.tecnicoNome || ownerFallback.tecnicoNome),
+    pecas: (input.pecas || []).map(part => ({
+      descricao: String(part.descricao || ''),
+      quantidade: Number(part.quantidade || 1),
+      observacao: String(part.observacao || ''),
+    })),
   };
 }
 
@@ -232,7 +443,12 @@ function hydrateUsersAuthData() {
     try {
       const parsedUsers = JSON.parse(storedUsersRaw) as User[];
       if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-        mockUsers.splice(0, mockUsers.length, ...parsedUsers);
+        const normalizedUsers = parsedUsers.map((user, index) => ({
+          ...user,
+          id: String(user.id ?? index + 1),
+          perfil: normalizeLegacyUserRole(user.perfil),
+        }));
+        mockUsers.splice(0, mockUsers.length, ...normalizedUsers);
       }
     } catch {
       localStorage.removeItem(USERS_STORAGE_KEY);
@@ -520,6 +736,63 @@ export async function saveVehicle(vehicle: Partial<Vehicle>): Promise<Vehicle> {
   return newVehicle;
 }
 
+export async function getPartKits(): Promise<PartKit[]> {
+  await delay(200);
+  return getStoredPartKits();
+}
+
+export async function savePartKit(kit: Partial<PartKit>): Promise<PartKit> {
+  await delay(300);
+
+  if (!kit.tecnicoId || !kit.tecnicoNome) {
+    throw new Error('Selecione o técnico responsável pelo kit.');
+  }
+
+  const kits = getStoredPartKits();
+  const currentMaxId = kits.reduce((max, item) => {
+    const parsedId = Number.parseInt(item.id, 10);
+    if (Number.isNaN(parsedId)) return max;
+    return Math.max(max, parsedId);
+  }, 0);
+
+  const newKit = normalizePartKit({ ...kit, id: String(currentMaxId + 1) }, String(currentMaxId + 1));
+
+  kits.unshift(newKit);
+  persistPartKits(kits);
+  return newKit;
+}
+
+export async function updatePartKit(kitId: string, updates: Partial<PartKit>): Promise<PartKit | undefined> {
+  await delay(300);
+
+  const kits = getStoredPartKits();
+  const index = kits.findIndex(item => item.id === kitId);
+  if (index < 0) return undefined;
+
+  kits[index] = normalizePartKit(
+    {
+      ...kits[index],
+      ...updates,
+      pecas: updates.pecas ?? kits[index].pecas,
+    },
+    kitId,
+  );
+
+  persistPartKits(kits);
+  return kits[index];
+}
+
+export async function deletePartKit(kitId: string): Promise<boolean> {
+  await delay(200);
+
+  const kits = getStoredPartKits();
+  const nextKits = kits.filter(item => item.id !== kitId);
+  if (nextKits.length === kits.length) return false;
+
+  persistPartKits(nextKits);
+  return true;
+}
+
 export async function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Promise<Vehicle | undefined> {
   await delay(500);
 
@@ -690,7 +963,7 @@ export async function saveUser(user: Partial<User> & { password: string }): Prom
     id: String(currentMaxId + 1),
     nome: user.nome || '',
     email: normalizedEmail,
-    perfil: user.perfil || 'consulta',
+    perfil: normalizeLegacyUserRole(user.perfil),
     ativo: user.ativo ?? true,
   };
 
@@ -746,6 +1019,10 @@ export async function updateUser(
     }
 
     updates.email = normalizedEmail;
+  }
+
+  if (updates.perfil) {
+    updates.perfil = normalizeLegacyUserRole(updates.perfil);
   }
 
   mockUsers[index] = { ...mockUsers[index], ...updates };

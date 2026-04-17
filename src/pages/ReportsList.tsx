@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Search, Filter } from "lucide-react";
-import { getReports } from "@/lib/api-service";
+import { getReports, hasPermission } from "@/lib/api-service";
 import { Report, ReportStatus } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ReportsList() {
   const navigate = useNavigate();
+  const canCreateReports = hasPermission("reports.create");
   const [reports, setReports] = useState<Report[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
@@ -34,9 +35,11 @@ export default function ReportsList() {
       <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Relatórios Técnicos</h1>
-          <Button onClick={() => navigate('/relatorios/novo')}>
-            <Plus className="h-4 w-4 mr-2" />Novo RAT
-          </Button>
+          {canCreateReports && (
+            <Button onClick={() => navigate('/relatorios/novo')}>
+              <Plus className="h-4 w-4 mr-2" />Novo RAT
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">

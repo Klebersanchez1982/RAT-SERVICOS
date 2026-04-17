@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Camera, Edit, Printer, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
-import { getReportById } from "@/lib/api-service";
+import { getReportById, hasPermission } from "@/lib/api-service";
 import { Report } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,7 +43,13 @@ export default function ReportDetail() {
 
   if (!report) return <AppLayout><div className="p-6 text-center text-muted-foreground">Carregando...</div></AppLayout>;
 
-  const canEdit = report.status !== 'fechado';
+  const canEdit = report.status !== 'fechado' && hasPermission("reports.edit");
+  const checklistLabelMap = {
+    checklist_cu: 'CHECK LIST C.U',
+    checklist_preventiva: 'CHECK LIST PREVENTIVA PADRÃO',
+    inspecao_geometria: 'INSPEÇÃO DE GEOMETRIA',
+    instrucao_geometrica: 'Instrução Geométrica Centro de Usinagem',
+  } as const;
 
   return (
     <AppLayout>
@@ -104,12 +110,37 @@ export default function ReportDetail() {
           <Card>
             <CardHeader><CardTitle className="text-base">Peças Utilizadas</CardTitle></CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {report.pecas.map(p => (
-                  <div key={p.id} className="flex justify-between text-sm p-2 bg-muted/50 rounded">
-                    <span>{p.descricao}</span><span className="font-medium">Qtd: {p.quantidade}</span>
+              <div className="space-y-4">
+                {[...new Map(report.pecas.filter(part => part.origem === 'kit').map(part => [part.kitId || part.kitNome || 'Kit', part.kitNome || 'Kit'])).entries()].map(([kitKey, kitNome]) => {
+                  const itens = report.pecas.filter(part => part.origem === 'kit' && (part.kitId || part.kitNome || 'Kit') === kitKey);
+                  if (itens.length === 0) return null;
+
+                  return (
+                    <div key={kitKey} className="space-y-2">
+                      <h3 className="text-sm font-semibold">{kitNome}</h3>
+                      <div className="space-y-2">
+                        {itens.map(p => (
+                          <div key={p.id} className="flex justify-between text-sm p-2 bg-muted/50 rounded">
+                            <span>{p.descricao}</span><span className="font-medium">Qtd: {p.quantidade}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {report.pecas.some(part => (part.origem || 'avulso') === 'avulso') && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">Itens avulsos</h3>
+                    <div className="space-y-2">
+                      {report.pecas.filter(part => (part.origem || 'avulso') === 'avulso').map(p => (
+                        <div key={p.id} className="flex justify-between text-sm p-2 bg-muted/50 rounded">
+                          <span>{p.descricao}</span><span className="font-medium">Qtd: {p.quantidade}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -119,7 +150,6 @@ export default function ReportDetail() {
           <CardHeader><CardTitle className="text-base">Deslocamento e Despesas</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Horas</span><span className="font-medium">{report.horasTrabalho}h</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Veículo</span><span className="font-medium">{report.veiculoDescricao} {report.placa}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-medium">{report.deslocamentoIda || '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Retorno</span><span className="font-medium">{report.deslocamentoVolta || '—'}</span></div>
@@ -129,6 +159,55 @@ export default function ReportDetail() {
               <div className="text-center p-2 bg-muted/50 rounded"><p className="text-muted-foreground text-xs">Pedágio</p><p className="font-medium">R$ {report.pedagio.toFixed(2)}</p></div>
               <div className="text-center p-2 bg-muted/50 rounded"><p className="text-muted-foreground text-xs">Refeição</p><p className="font-medium">R$ {report.refeicao.toFixed(2)}</p></div>
               <div className="text-center p-2 bg-muted/50 rounded"><p className="text-muted-foreground text-xs">Estadia</p><p className="font-medium">R$ {report.estadia.toFixed(2)}</p></div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle className="text-base">Checklist</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="flex justify-between"><span className="text-muted-foreground">Modelo</span><span className="font-medium">{(report.checklistModelo && checklistLabelMap[report.checklistModelo]) || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{(report.checklistStatus || 'pendente').replace('_', ' ')}</span></div>
+            </div>
+
+            {report.checklistRespostas && report.checklistRespostas.length > 0 && (
+              <div className="space-y-2 pt-2">
+                {report.checklistRespostas.map((item) => (
+                  <div key={item.itemId} className="p-2 rounded bg-muted/50">
+                    <p className="font-medium">{item.itemLabel}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      Resultado: {item.resultado.replace('_', ' ')}
+                    </p>
+                    {item.observacao && <p className="text-xs">Obs: {item.observacao}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {report.checklistObservacoesGerais && (
+              <div className="pt-2">
+                <p className="text-xs text-muted-foreground">Observacoes gerais</p>
+                <p className="text-sm whitespace-pre-wrap">{report.checklistObservacoesGerais}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 pt-2">
+              {report.checklistLinkExterno && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={report.checklistLinkExterno} target="_blank" rel="noreferrer">Abrir preenchimento externo</a>
+                </Button>
+              )}
+              {report.checklistArquivoUrl && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={report.checklistArquivoUrl} download={report.checklistArquivoNome || 'checklist'}>Baixar checklist final</a>
+                </Button>
+              )}
+              {report.checklistCapaUrl && (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={report.checklistCapaUrl} download={report.checklistCapaNome || 'capa'}>Baixar capa</a>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

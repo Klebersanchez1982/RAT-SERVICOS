@@ -1,6 +1,7 @@
 # RAT - Assistência Técnica
 
 Aplicação web para gestão de assistência técnica, construída com React + TypeScript + Vite.
+<<<<<<< HEAD
 
 ## Requisitos
 
@@ -74,3 +75,5 @@ Observação: o GitHub Pages hospeda apenas o frontend. O salvamento real em pla
 	Execute `npm install` antes de `npm run dev`.
 - Porta `8080` em uso:
 	Pare o processo que está usando a porta ou ajuste `server.port` em `vite.config.ts`.
+=======
+>>>>>>> ce590794016532b6bb6177935ba9a7364c8a71ef

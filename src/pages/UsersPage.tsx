@@ -17,24 +17,23 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { Lock, LockOpen, Pencil, Plus, Users } from "lucide-react";
-import { getUsers, saveUser, setUserBlocked, updateUser } from "@/lib/api-service";
+import { getUsers, hasPermission, saveUser, setUserBlocked, updateUser } from "@/lib/api-service";
 import { User } from "@/lib/types";
 
 const roleLabels: Record<User["perfil"], string> = {
   admin: 'Administrador',
-  tecnico_interno: 'Técnico Interno',
-  tecnico_externo: 'Técnico Externo',
-  consulta: 'Consulta',
+  gerente: 'Gerente',
+  tecnico: 'Técnico',
 };
 
 const roleOrder: Record<User["perfil"], number> = {
   admin: 0,
-  tecnico_interno: 1,
-  tecnico_externo: 2,
-  consulta: 3,
+  gerente: 1,
+  tecnico: 2,
 };
 
 export default function UsersPage() {
+  const canManageUsers = hasPermission("users.manage");
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -43,7 +42,7 @@ export default function UsersPage() {
   const [formUser, setFormUser] = useState({
     nome: "",
     email: "",
-    perfil: "consulta" as User["perfil"],
+    perfil: "tecnico" as User["perfil"],
     ativo: true,
     senha: "",
     confirmarSenha: "",
@@ -57,7 +56,7 @@ export default function UsersPage() {
     setFormUser({
       nome: "",
       email: "",
-      perfil: "consulta",
+      perfil: "tecnico",
       ativo: true,
       senha: "",
       confirmarSenha: "",
@@ -65,12 +64,14 @@ export default function UsersPage() {
   }
 
   function openCreateDialog() {
+    if (!canManageUsers) return;
     setEditingUserId(null);
     resetForm();
     setIsDialogOpen(true);
   }
 
   function openEditDialog(user: User) {
+    if (!canManageUsers) return;
     setEditingUserId(user.id);
     setFormUser({
       nome: user.nome,
@@ -89,6 +90,11 @@ export default function UsersPage() {
 
   async function handleSaveUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (!canManageUsers) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode gerenciar usuários.", variant: "destructive" });
+      return;
+    }
 
     if (!formUser.nome.trim() || !formUser.email.trim()) {
       toast({
@@ -198,6 +204,11 @@ export default function UsersPage() {
   }
 
   async function handleToggleBlocked(user: User) {
+    if (!canManageUsers) {
+      toast({ title: "Sem permissão", description: "Seu nível de acesso não pode alterar status de usuários.", variant: "destructive" });
+      return;
+    }
+
     try {
       const updated = await setUserBlocked(user.id, user.ativo);
 
@@ -256,7 +267,7 @@ export default function UsersPage() {
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" />Usuários</h1>
-          <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>
+          {canManageUsers && <Button onClick={openCreateDialog}><Plus className="h-4 w-4 mr-2" />Novo</Button>}
         </div>
 
         <Input
@@ -276,17 +287,21 @@ export default function UsersPage() {
                 <div className="flex items-center gap-2 flex-wrap justify-end">
                   <Badge variant="secondary">{roleLabels[u.perfil]}</Badge>
                   <Badge variant={u.ativo ? "default" : "destructive"}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
-                  <Button size="sm" variant="outline" onClick={() => openEditDialog(u)}>
-                    <Pencil className="h-3.5 w-3.5 mr-1" />Editar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={u.ativo ? "destructive" : "outline"}
-                    onClick={() => handleToggleBlocked(u)}
-                  >
-                    {u.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
-                    {u.ativo ? "Bloquear" : "Desbloquear"}
-                  </Button>
+                  {canManageUsers && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => openEditDialog(u)}>
+                        <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={u.ativo ? "destructive" : "outline"}
+                        onClick={() => handleToggleBlocked(u)}
+                      >
+                        {u.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
+                        {u.ativo ? "Bloquear" : "Desbloquear"}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -320,9 +335,8 @@ export default function UsersPage() {
                     <SelectTrigger id="perfil"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="tecnico_interno">Técnico Interno</SelectItem>
-                      <SelectItem value="tecnico_externo">Técnico Externo</SelectItem>
-                      <SelectItem value="consulta">Consulta</SelectItem>
+                      <SelectItem value="gerente">Gerente</SelectItem>
+                      <SelectItem value="tecnico">Técnico</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -368,7 +382,7 @@ export default function UsersPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
+                <Button type="submit" disabled={isSaving || !canManageUsers}>{isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Salvar"}</Button>
               </DialogFooter>
             </form>
           </DialogContent>

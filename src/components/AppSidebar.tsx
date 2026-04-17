@@ -1,36 +1,47 @@
 import {
   FileText, Users, Settings, Building2, Wrench,
-  Car, QrCode, LayoutDashboard, Search
+  Car, QrCode, LayoutDashboard, Search, Package2
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { hasPermission } from "@/lib/api-service";
+import { PermissionKey } from "@/lib/types";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import { getCurrentUser } from "@/lib/api-service";
 
 const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Relatórios", url: "/relatorios", icon: FileText },
-  { title: "Novo Relatório", url: "/relatorios/novo", icon: FileText },
-  { title: "Ler QR Code", url: "/qrcode", icon: QrCode },
-  { title: "Buscar", url: "/buscar", icon: Search },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, permission: "dashboard.view" as PermissionKey },
+  { title: "Relatórios", url: "/relatorios", icon: FileText, permission: "reports.view" as PermissionKey },
+  { title: "Novo Relatório", url: "/relatorios/novo", icon: FileText, permission: "reports.create" as PermissionKey },
+  { title: "Ler QR Code", url: "/qrcode", icon: QrCode, permission: "qrcode.view" as PermissionKey },
+  { title: "Buscar", url: "/buscar", icon: Search, permission: "search.view" as PermissionKey },
 ];
 
 const cadastroItems = [
-  { title: "Clientes", url: "/clientes", icon: Building2 },
-  { title: "Equipamentos", url: "/equipamentos", icon: Wrench },
-  { title: "Veículos", url: "/veiculos", icon: Car },
-  { title: "Usuários", url: "/usuarios", icon: Users },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Clientes", url: "/clientes", icon: Building2, permission: "clients.view" as PermissionKey },
+  { title: "Equipamentos", url: "/equipamentos", icon: Wrench, permission: "equipments.view" as PermissionKey },
+  { title: "Kits de Peças", url: "/kits", icon: Package2, permission: "kits.view" as PermissionKey },
+  { title: "Veículos", url: "/veiculos", icon: Car, permission: "vehicles.view" as PermissionKey },
+  { title: "Usuários", url: "/usuarios", icon: Users, permission: "users.view" as PermissionKey },
+  { title: "Configurações", url: "/configuracoes", icon: Settings, permission: "settings.view" as PermissionKey, adminOnly: true },
 ];
 
 export function AppSidebar() {
+  const currentUser = getCurrentUser();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
+
+  const canShowItem = (item: { permission: PermissionKey; adminOnly?: boolean }) => {
+    if (!hasPermission(item.permission)) return false;
+    if (item.adminOnly && currentUser.perfil !== "admin") return false;
+    return true;
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -53,6 +64,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
+                canShowItem(item) && (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={currentPath === item.url}>
                     <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
@@ -61,6 +73,7 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                )
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -71,6 +84,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {cadastroItems.map((item) => (
+                canShowItem(item) && (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={currentPath === item.url}>
                     <NavLink to={item.url} end className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-sidebar-primary font-medium">
@@ -79,6 +93,7 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                )
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
