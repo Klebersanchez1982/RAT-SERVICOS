@@ -353,6 +353,7 @@ function getKitOwnerFallback() {
 
 function normalizePartKit(input: Partial<PartKit>, fallbackId: string): PartKit {
   const ownerFallback = getKitOwnerFallback();
+  const parts = Array.isArray(input.pecas) ? input.pecas : [];
 
   return {
     id: String(input.id ?? fallbackId),
@@ -360,7 +361,7 @@ function normalizePartKit(input: Partial<PartKit>, fallbackId: string): PartKit 
     descricao: String(input.descricao || ''),
     tecnicoId: String(input.tecnicoId || ownerFallback.tecnicoId),
     tecnicoNome: String(input.tecnicoNome || ownerFallback.tecnicoNome),
-    pecas: (input.pecas || []).map(part => ({
+    pecas: parts.map(part => ({
       descricao: String(part.descricao || ''),
       quantidade: Number(part.quantidade || 1),
       observacao: String(part.observacao || ''),
