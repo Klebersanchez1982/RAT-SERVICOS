@@ -79,6 +79,20 @@ export type ChecklistStatus = 'pendente' | 'em_preenchimento' | 'concluido';
 export type ChecklistItemResult = 'pendente' | 'conforme' | 'nao_conforme' | 'na';
 export type ChecklistBinaryChoice = 'sim' | 'nao';
 
+export interface ChecklistInstrucaoCabecalho {
+  tituloDocumento?: string;
+  chaveCabecalho?: string;
+  edCabecalho?: string;
+  descricao?: string;
+  elaborado?: string;
+  analisadoAprovado?: string;
+  data?: string;
+  folha?: string;
+  chave?: string;
+  ed?: string;
+  tipo?: string;
+}
+
 export interface ChecklistAnswer {
   itemId: string;
   itemLabel: string;
@@ -88,7 +102,16 @@ export interface ChecklistAnswer {
   statusLivre?: string;
   valorEncontrado?: string;
   valorAtual?: string;
+  instrucaoCabecalho?: ChecklistInstrucaoCabecalho;
   observacao: string;
+}
+
+export interface ChecklistCorrectiveEntry {
+  data: string;
+  servicoExecutado: string;
+  defeito: string;
+  relatorioOuOs: string;
+  responsavel: string;
 }
 
 export interface ReportPhoto {
@@ -149,6 +172,7 @@ export interface Report {
   checklistStatus?: ChecklistStatus;
   checklistRespostas?: ChecklistAnswer[];
   checklistObservacoesGerais?: string;
+  checklistCorretivas?: ChecklistCorrectiveEntry[];
   checklistLinkExterno?: string;
   checklistArquivoNome?: string;
   checklistArquivoUrl?: string;

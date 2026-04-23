@@ -53,6 +53,25 @@ export default function ReportDetail() {
   } as const;
 
   const checklistSections = report.checklistModelo ? getChecklistTemplateSections(report.checklistModelo) : [];
+  const formatDate = (value: string) => {
+    if (!value) return "—";
+
+    const parts = value.split("-");
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}/${month}/${year}`;
+    }
+
+    return value;
+  };
+  const checklistCorretivasPreenchidas = (report.checklistCorretivas || []).filter(
+    (item) =>
+      Boolean(item.data?.trim()) ||
+      Boolean(item.servicoExecutado?.trim()) ||
+      Boolean(item.defeito?.trim()) ||
+      Boolean(item.relatorioOuOs?.trim()) ||
+      Boolean(item.responsavel?.trim()),
+  );
 
   return (
     <AppLayout>
@@ -202,6 +221,31 @@ export default function ReportDetail() {
                       </div>
                     </div>
                   ))
+                ) : report.checklistModelo === 'checklist_preventiva' ? (
+                  checklistSections.map((section) => (
+                    <div key={section.groupLabel} className="rounded-lg border overflow-hidden">
+                      <div className="bg-muted/60 px-3 py-2 border-b">
+                        <p className="text-xs font-semibold tracking-wide">{section.groupLabel}</p>
+                      </div>
+                      <div className="divide-y">
+                        {section.items.map((sectionItem) => {
+                          const item = report.checklistRespostas?.find((answer) => answer.itemId === sectionItem.itemId);
+
+                          if (!item) return null;
+
+                          return (
+                            <div key={sectionItem.itemId} className="p-3 space-y-1">
+                              <p className="font-medium">{sectionItem.subgroupLabel}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
+                                <p>Observacoes: {item.observacao || '—'}</p>
+                                <p>Status: {item.statusLivre || '—'}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
                 ) : report.checklistModelo === 'inspecao_geometria' ? (
                   report.checklistRespostas.map((item) => (
                     <div key={item.itemId} className="p-2 rounded bg-muted/50">
@@ -229,6 +273,23 @@ export default function ReportDetail() {
               <div className="pt-2">
                 <p className="text-xs text-muted-foreground">Observacoes gerais</p>
                 <p className="text-sm whitespace-pre-wrap">{report.checklistObservacoesGerais}</p>
+              </div>
+            )}
+
+            {checklistCorretivasPreenchidas.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <p className="text-xs text-muted-foreground">Controle de corretivas</p>
+                {checklistCorretivasPreenchidas.map((item, index) => (
+                  <div key={`corretiva-${index}`} className="rounded border p-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-1 text-xs text-muted-foreground">
+                      <p>Data: {formatDate(item.data)}</p>
+                      <p>Servico executado: {item.servicoExecutado || '—'}</p>
+                      <p>Defeito: {item.defeito || '—'}</p>
+                      <p>Relatorio ou O.S: {item.relatorioOuOs || '—'}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Responsavel: {item.responsavel || '—'}</p>
+                  </div>
+                ))}
               </div>
             )}
 

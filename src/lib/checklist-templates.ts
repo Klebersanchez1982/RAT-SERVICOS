@@ -98,14 +98,59 @@ export const checklistTemplateDefinitions: Record<ChecklistTemplateKey, { label:
   checklist_preventiva: {
     label: "CHECK LIST PREVENTIVA PADRAO",
     itens: [
-      "Inspecao visual da maquina",
-      "Verificacao do sistema de lubrificacao",
-      "Conferencia do aperto de conexoes eletricas",
-      "Teste de funcionamento dos sensores",
-      "Limpeza de filtros e trocadores",
-      "Medicao de folgas e vibracao",
-      "Backup de parametros de maquina",
-      "Registro de recomendacoes preventivas",
+      "1 SISTEMA HIDRAULICO - LIMPEZA DO RESERVATORIO",
+      "1 SISTEMA HIDRAULICO - VERIFICACAO DE TODOS OS ACOPLAMENTOS DA BOMBA",
+      "1 SISTEMA HIDRAULICO - TROCA DE OLEO",
+      "1 SISTEMA HIDRAULICO - VERIFICACAO/LIMPEZA EXTERNA DAS VALVULAS HIDRAULICAS",
+      "1 SISTEMA HIDRAULICO - VERIFICACAO NO CILINDRO HIDRAULICO DA PLACA",
+      "1 SISTEMA HIDRAULICO - VERIFICACAO DOS MANOMETROS",
+      "2 LUBRIFICACAO - TROCA DE DOSADORES",
+      "2 LUBRIFICACAO - TROCA DE FILTROS DE LINHA",
+      "2 LUBRIFICACAO - TROCA DE FILTRO LUBE",
+      "2 LUBRIFICACAO - REVISAO DE TODAS AS MANGUEIRAS",
+      "3 SISTEMA PNEUMATICO - REVISAO DA UNIDADE DE CONSERVACAO",
+      "3 SISTEMA PNEUMATICO - TROCA DE SILENCIADORES",
+      "3 SISTEMA PNEUMATICO - TROCA/REVISAO DOS PRESSOSTATOS",
+      "3 SISTEMA PNEUMATICO - TROCA DE OLEO PNEUMATICO",
+      "3 SISTEMA PNEUMATICO - VERIFICACAO DOS MANOMETROS",
+      "4 PAINEIS ELETRICOS - LIMPEZA DO PAINEL ELETRICO",
+      "4 PAINEIS ELETRICOS - TROCA DE FILTROS",
+      "4 PAINEIS ELETRICOS - REVISAO OU TROCA DE COOLERS DAS PORTAS",
+      "4 PAINEIS ELETRICOS - VERIFICAR FUNCIONAMENTO DA CHAVE GERAL",
+      "4 PAINEIS ELETRICOS - LIMPEZA E REVISAO NO CLIMATIZADOR DO PAINEL ELETRICO",
+      "5 FUSOS E GUIAS - ANALISE DOS FUSOS ESFERICOS (FOLGAS) SE NECESSARIO REPARO EM LABORATORIO",
+      "5 FUSOS E GUIAS - VERIFICACAO/LIMPEZA DOS ACOPLAMENTOS E POLIAS",
+      "5 FUSOS E GUIAS - TROCAR CORREIAS DO EIXO X, Z CASO NECESSARIO",
+      "5 FUSOS E GUIAS - REVISAO COMPLETA PARA ELIMINACAO DE FOLGAS PARA MELHOR DESEMPENHO",
+      "6 SERVO MOTORES - MEDICAO DA ISOLACAO DOS SERVOS MOTORES",
+      "6 SERVO MOTORES - TROCA/REVISAO DE CABOS DE POTENCIA E ENCODER (SE NECESSARIO)",
+      "6 SERVO MOTORES - TROCA DOS MICROS DE REFERENCIA (SE NECESSARIO)",
+      "6 SERVO MOTORES - REVISAO DO MOTOR DO VENTILADOR DO EIXO ARVORE",
+      "7 BARRAMENTO DOS EIXOS - TROCA DOS RASPADORES X E Z",
+      "7 BARRAMENTO DOS EIXOS - VERIFICACAO DE FOLGA/DESGASTE/LUBRIFICACAO TORCITE",
+      "8 EIXO ARVORE - ANALISE DE RUIDO COMPLETA",
+      "8 EIXO ARVORE - VERIFICACAO DE VAZAMENTO DO CILINDRO E CASO NECESSITE, TROCA DE REPAROS",
+      "8 EIXO ARVORE - VERIFICACAO DE FOLGA",
+      "8 EIXO ARVORE - TROCA DA CORREIA DO MOTOR SE NECESSARIO",
+      "8 EIXO ARVORE - TROCA DA CORREIA DO ENCODER DIRETO SE NECESSARIO",
+      "10 CONTRA PONTO - VERIFICACAO DE FUNCIONAMENTO",
+      "10 CONTRA PONTO - VERIFICACAO /CORRECAO DE FOLGA",
+      "11 SISTEMA DE REFRIGERACAO - TROCA DO FILTRO DE REFRIGERACAO",
+      "11 SISTEMA DE REFRIGERACAO - ANALISE DE UNIAO ROTATIVA",
+      "11 SISTEMA DE REFRIGERACAO - ANALISE DE MANGUEIRAS",
+      "12 TRANSPORTADOR DE CAVACOS - REVISAO DO MOTOREDUTOR, VERIFICACAO DO NIVEL DE OLEO",
+      "12 TRANSPORTADOR DE CAVACOS - INSPECIONAR VAZAMENTO NO RESERVATORIO DO TRANSPORTADOR",
+      "12 TRANSPORTADOR DE CAVACOS - MONTAGEM E AJUSTE DE TENSIONAMENTO DA ESTEIRA E DO MICRO EMERGENCIA",
+      "13 PROTECOES TELESCOPICAS DOS EIXOS - REVISAR PROTECOES TELESCOPICAS, CASO NECESSITE \"ENVIAR PARA TERCEIROS\"",
+      "14 PAINEL OPERADOR - REVISAR IHM (PAINEL DE COMANDO, VIDEO E TECLADO);",
+      "14 PAINEL OPERADOR - SUBSTITUIR COOLERS DO CNC, CASO NECESSARIO",
+      "14 PAINEL OPERADOR - TROCA DE BOTOES DANIFICADOS;",
+      "14 PAINEL OPERADOR - TROCA DE CHAVES",
+      "14 PAINEL OPERADOR - VERIFICAR FUNCIONAMENTO HANDWELL",
+      "14 PAINEL OPERADOR - LIMPEZA DA LUMINARIA INTERNA",
+      "15 ACIONAMENTOS, INVERSORES E CNC - VERIFICAR RUIDO E LIMPEZA CASO NECESSITE ENVIAR PARA LABORATORIO",
+      "15 ACIONAMENTOS, INVERSORES E CNC - VERIFICAR BATERIAS",
+      "15 ACIONAMENTOS, INVERSORES E CNC - VERIFICAR SUJEIRA NOS COOLERS",
     ],
   },
   inspecao_geometria: {
@@ -129,14 +174,15 @@ export const checklistTemplateDefinitions: Record<ChecklistTemplateKey, { label:
   instrucao_geometrica: {
     label: "Instrucao Geometrica Centro de Usinagem",
     itens: [
-      "Preparacao de relogio comparador e base magnetica",
-      "Sequencia de medicao eixo X",
-      "Sequencia de medicao eixo Y",
-      "Sequencia de medicao eixo Z",
-      "Checagem de esquadro da mesa",
-      "Ajuste de parametros de compensacao",
-      "Validacao por peca teste",
-      "Aprovacao tecnica e assinatura",
+      "ITEM 1.1 - RETILINEIDADE DAS GUIAS DO BARRAMENTO",
+      "ITEM 1.2 - IMPRECISAO TOTAL DE GIRO DE CENTRAGEM (AXIAL)",
+      "ITEM 1.3 - IMPRECISAO TOTAL DE GIRO DO CONE INTERNO",
+      "ITEM 1.4 - ORTOGONALIDADE ENTRE A SUPERFICIE DA MESA E O MOVIMENTO DO EIXO Z",
+      "ITEM 1.5 - ORTOGONALIDADE ENTRE O MOVIMENTO DOS EIXOS X E Y",
+      "ITEM 1.6 - RETILINEIDADE ENTRE A SUPERFICIE DA MESA E O MOVIMENTO DO EIXO Y",
+      "ITEM 1.7 - RETILINEIDADE ENTRE A SUPERFICIE DA MESA E O MOVIMENTO DO EIXO X",
+      "ITEM 1.8 - PARALELISMO ENTRE A RANHURA DE REFERENCIA E O MOVIMENTO DO EIXO X",
+      "ITEM 1.9 - PERPENDICULARIDADE ENTRE A SUPERFICIE DA MESA E O EIXO ARVORE",
     ],
   },
 };
@@ -152,10 +198,15 @@ export function getChecklistBinaryChoices() {
   return checklistBinaryChoices;
 }
 
+function removeGroupNumberPrefix(label: string): string {
+  // Remove prefixo como "1 ", "2 ", "15 " do início do label
+  return label.replace(/^\d+\s+/, "").trim();
+}
+
 export function getChecklistTemplateSections(templateKey: ChecklistTemplateKey): ChecklistTemplateSection[] {
   const items = checklistTemplateDefinitions[templateKey].itens;
 
-  if (templateKey !== "checklist_cu") {
+  if (templateKey !== "checklist_cu" && templateKey !== "checklist_preventiva") {
     return [
       {
         groupLabel: checklistTemplateDefinitions[templateKey].label,
@@ -172,9 +223,9 @@ export function getChecklistTemplateSections(templateKey: ChecklistTemplateKey):
 
   items.forEach((itemLabel, index) => {
     const [groupLabelRaw, subgroupLabelRaw] = itemLabel.split(" - ", 2);
-    const groupLabel = (groupLabelRaw || itemLabel).trim();
+    const groupLabelWithoutNumber = removeGroupNumberPrefix(groupLabelRaw || itemLabel);
     const subgroupLabel = (subgroupLabelRaw || itemLabel).trim();
-    const sectionItems = groupedSections.get(groupLabel) || [];
+    const sectionItems = groupedSections.get(groupLabelWithoutNumber) || [];
 
     sectionItems.push({
       itemId: `${templateKey}:${index + 1}`,
@@ -182,7 +233,7 @@ export function getChecklistTemplateSections(templateKey: ChecklistTemplateKey):
       subgroupLabel,
     });
 
-    groupedSections.set(groupLabel, sectionItems);
+    groupedSections.set(groupLabelWithoutNumber, sectionItems);
   });
 
   return Array.from(groupedSections.entries()).map(([groupLabel, sectionItems]) => ({
@@ -196,8 +247,16 @@ export function isChecklistAnswerComplete(templateKey: ChecklistTemplateKey, ans
     return Boolean(answer.revisado && answer.trocado);
   }
 
+  if (templateKey === "checklist_preventiva") {
+    return Boolean(answer.statusLivre?.trim());
+  }
+
   if (templateKey === "inspecao_geometria") {
     return Boolean(answer.valorEncontrado?.trim() && answer.valorAtual?.trim());
+  }
+
+  if (templateKey === "instrucao_geometrica") {
+    return Boolean(answer.valorEncontrado?.trim());
   }
 
   return answer.resultado !== "pendente";
