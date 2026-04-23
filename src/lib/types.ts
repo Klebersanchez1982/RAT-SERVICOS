@@ -77,11 +77,17 @@ export type PhotoCategory = 'antes' | 'durante' | 'depois';
 export type ChecklistTemplateKey = 'checklist_cu' | 'checklist_preventiva' | 'inspecao_geometria' | 'instrucao_geometrica';
 export type ChecklistStatus = 'pendente' | 'em_preenchimento' | 'concluido';
 export type ChecklistItemResult = 'pendente' | 'conforme' | 'nao_conforme' | 'na';
+export type ChecklistBinaryChoice = 'sim' | 'nao';
 
 export interface ChecklistAnswer {
   itemId: string;
   itemLabel: string;
   resultado: ChecklistItemResult;
+  revisado?: ChecklistBinaryChoice;
+  trocado?: ChecklistBinaryChoice;
+  statusLivre?: string;
+  valorEncontrado?: string;
+  valorAtual?: string;
   observacao: string;
 }
 

@@ -1,4 +1,15 @@
-import { ChecklistAnswer, ChecklistTemplateKey } from "./types";
+import { ChecklistAnswer, ChecklistBinaryChoice, ChecklistTemplateKey } from "./types";
+
+export type ChecklistTemplateSectionItem = {
+  itemId: string;
+  itemLabel: string;
+  subgroupLabel: string;
+};
+
+export type ChecklistTemplateSection = {
+  groupLabel: string;
+  items: ChecklistTemplateSectionItem[];
+};
 
 export const checklistTemplateDefinitions: Record<ChecklistTemplateKey, { label: string; itens: string[] }> = {
   checklist_cu: {
@@ -100,14 +111,19 @@ export const checklistTemplateDefinitions: Record<ChecklistTemplateKey, { label:
   inspecao_geometria: {
     label: "INSPECAO DE GEOMETRIA",
     itens: [
-      "Nivelamento da base",
-      "Perpendicularidade eixo X/Y",
-      "Perpendicularidade eixo Y/Z",
-      "Paralelismo mesa/eixos",
-      "Batimento do fuso",
-      "Repetibilidade de posicionamento",
-      "Compensacoes aplicadas no controle",
-      "Relatorio dimensional aprovado",
+      "IMPRECISAO TOTAL DE GIRO\nDA SUPERFICIE EXTERNA\nDE CENTRAGEM\nDO NARIZ DO ARVORE",
+      "IMPRECISAO TOTAL DE GIRO\nDA SUPERFICIE INTERNA\nDE CENTRAGEM DO NARIZ\nDO ARVORE.",
+      "A) O MAIS PROXIMO\nPOSSIVEL DO NARIZ.",
+      "B) A 300mm DO NARIZ",
+      "PARALELISMO ENTRE O EIXO ARVORE E O MOVIMENTO LONGITUDINAL\nDO CARRO EM COMPRIMENTO DE 100mm",
+      "PARALELISMO ENTRE O EIXO ARVORE E O MOVIMENTO LONGITUDINAL\nDO CARRO EM COMPRIMENTO DE 300mm",
+      "ALINHAMENTO LATERAL ENTRE OS CENTROS DOS PONTOS DOS\nCABECOTES FIXO E MOVEL.",
+      "ALINHAMENTO INTERNO DO CASTELO DA TORRE",
+      "FOLGA DO FUSO EIXO X",
+      "CORRECAO DE FOLGA EIXO X",
+      "FOLGA DO FUSO EIXO Z",
+      "CORRECAO DE FOLGA EIXO Z",
+      "NIVELAMENTO DA MAQUINA",
     ],
   },
   instrucao_geometrica: {
@@ -125,10 +141,74 @@ export const checklistTemplateDefinitions: Record<ChecklistTemplateKey, { label:
   },
 };
 
+const checklistBinaryChoices: ChecklistBinaryChoice[] = ["sim", "nao"];
+
 export const checklistTemplates = (Object.keys(checklistTemplateDefinitions) as ChecklistTemplateKey[]).map((key) => ({
   key,
   label: checklistTemplateDefinitions[key].label,
 }));
+
+export function getChecklistBinaryChoices() {
+  return checklistBinaryChoices;
+}
+
+export function getChecklistTemplateSections(templateKey: ChecklistTemplateKey): ChecklistTemplateSection[] {
+  const items = checklistTemplateDefinitions[templateKey].itens;
+
+  if (templateKey !== "checklist_cu") {
+    return [
+      {
+        groupLabel: checklistTemplateDefinitions[templateKey].label,
+        items: items.map((itemLabel, index) => ({
+          itemId: `${templateKey}:${index + 1}`,
+          itemLabel,
+          subgroupLabel: itemLabel,
+        })),
+      },
+    ];
+  }
+
+  const groupedSections = new Map<string, ChecklistTemplateSectionItem[]>();
+
+  items.forEach((itemLabel, index) => {
+    const [groupLabelRaw, subgroupLabelRaw] = itemLabel.split(" - ", 2);
+    const groupLabel = (groupLabelRaw || itemLabel).trim();
+    const subgroupLabel = (subgroupLabelRaw || itemLabel).trim();
+    const sectionItems = groupedSections.get(groupLabel) || [];
+
+    sectionItems.push({
+      itemId: `${templateKey}:${index + 1}`,
+      itemLabel,
+      subgroupLabel,
+    });
+
+    groupedSections.set(groupLabel, sectionItems);
+  });
+
+  return Array.from(groupedSections.entries()).map(([groupLabel, sectionItems]) => ({
+    groupLabel,
+    items: sectionItems,
+  }));
+}
+
+export function isChecklistAnswerComplete(templateKey: ChecklistTemplateKey, answer: ChecklistAnswer): boolean {
+  if (templateKey === "checklist_cu") {
+    return Boolean(answer.revisado && answer.trocado);
+  }
+
+  if (templateKey === "inspecao_geometria") {
+    return Boolean(answer.valorEncontrado?.trim() && answer.valorAtual?.trim());
+  }
+
+  return answer.resultado !== "pendente";
+}
+
+export function getChecklistProgress(templateKey: ChecklistTemplateKey, answers: ChecklistAnswer[]) {
+  return {
+    completed: answers.filter((answer) => isChecklistAnswerComplete(templateKey, answer)).length,
+    total: answers.length,
+  };
+}
 
 export function getDefaultChecklistAnswers(templateKey: ChecklistTemplateKey): ChecklistAnswer[] {
   return checklistTemplateDefinitions[templateKey].itens.map((itemLabel, index) => ({

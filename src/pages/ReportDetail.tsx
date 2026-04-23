@@ -9,6 +9,7 @@ import { getReportById, hasPermission } from "@/lib/api-service";
 import { Report } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getChecklistTemplateSections } from "@/lib/checklist-templates";
 
 export default function ReportDetail() {
   const { id } = useParams();
@@ -50,6 +51,8 @@ export default function ReportDetail() {
     inspecao_geometria: 'INSPEÇÃO DE GEOMETRIA',
     instrucao_geometrica: 'Instrução Geométrica Centro de Usinagem',
   } as const;
+
+  const checklistSections = report.checklistModelo ? getChecklistTemplateSections(report.checklistModelo) : [];
 
   return (
     <AppLayout>
@@ -172,16 +175,53 @@ export default function ReportDetail() {
             </div>
 
             {report.checklistRespostas && report.checklistRespostas.length > 0 && (
-              <div className="space-y-2 pt-2">
-                {report.checklistRespostas.map((item) => (
-                  <div key={item.itemId} className="p-2 rounded bg-muted/50">
-                    <p className="font-medium">{item.itemLabel}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      Resultado: {item.resultado.replace('_', ' ')}
-                    </p>
-                    {item.observacao && <p className="text-xs">Obs: {item.observacao}</p>}
-                  </div>
-                ))}
+              <div className="space-y-3 pt-2">
+                {report.checklistModelo === 'checklist_cu' ? (
+                  checklistSections.map((section) => (
+                    <div key={section.groupLabel} className="rounded-lg border overflow-hidden">
+                      <div className="bg-muted/60 px-3 py-2 border-b">
+                        <p className="text-xs font-semibold tracking-wide">{section.groupLabel}</p>
+                      </div>
+                      <div className="divide-y">
+                        {section.items.map((sectionItem) => {
+                          const item = report.checklistRespostas?.find((answer) => answer.itemId === sectionItem.itemId);
+
+                          if (!item) return null;
+
+                          return (
+                            <div key={sectionItem.itemId} className="p-3 space-y-1">
+                              <p className="font-medium">{sectionItem.subgroupLabel}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 text-xs text-muted-foreground">
+                                <p>Revisado: {(item.revisado || '—').toUpperCase()}</p>
+                                <p>Trocado: {(item.trocado || '—').toUpperCase()}</p>
+                                <p>Status: {item.statusLivre || '—'}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                ) : report.checklistModelo === 'inspecao_geometria' ? (
+                  report.checklistRespostas.map((item) => (
+                    <div key={item.itemId} className="p-2 rounded bg-muted/50">
+                      <p className="font-medium whitespace-pre-line">{item.itemLabel}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-muted-foreground">
+                        <p>Valor encontrado: {item.valorEncontrado || '—'}</p>
+                        <p>Valor atual: {item.valorAtual || '—'}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  report.checklistRespostas.map((item) => (
+                    <div key={item.itemId} className="p-2 rounded bg-muted/50">
+                      <p className="font-medium">{item.itemLabel}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        Resultado: {item.resultado.replace('_', ' ')}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 

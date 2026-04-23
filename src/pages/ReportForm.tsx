@@ -22,7 +22,7 @@ import {
   uploadReportPhoto,
 } from "@/lib/api-service";
 import { Client, Equipment, Vehicle, Report, MaintenanceType, ReportPart, PhotoCategory, ReportPhoto, PartKit, ChecklistTemplateKey, ChecklistStatus } from "@/lib/types";
-import { checklistTemplates } from "@/lib/checklist-templates";
+import { checklistTemplates, getChecklistProgress } from "@/lib/checklist-templates";
 import { toast } from "sonner";
 
 const NEW_REPORT_DRAFT_STORAGE_KEY = 'rat-report-draft-new';
@@ -136,6 +136,11 @@ export default function ReportForm() {
     if (!templateKey) return [];
     return (form.checklistRespostas || []).filter(answer => answer.itemId.startsWith(`${templateKey}:`));
   }, [form.checklistModelo, form.checklistRespostas]);
+
+  const currentChecklistProgress = useMemo(() => {
+    if (!form.checklistModelo) return { completed: 0, total: 0 };
+    return getChecklistProgress(form.checklistModelo, currentChecklistAnswers);
+  }, [currentChecklistAnswers, form.checklistModelo]);
 
   const openChecklistScreen = (templateKey: ChecklistTemplateKey) => {
     const draft: Partial<Report> = {
@@ -663,7 +668,7 @@ export default function ReportForm() {
                   <Label>Itens respondidos</Label>
                   <Input
                     readOnly
-                    value={`${currentChecklistAnswers.filter(answer => answer.resultado !== 'pendente').length}/${currentChecklistAnswers.length}`}
+                    value={`${currentChecklistProgress.completed}/${currentChecklistProgress.total}`}
                   />
                 </div>
               </div>
