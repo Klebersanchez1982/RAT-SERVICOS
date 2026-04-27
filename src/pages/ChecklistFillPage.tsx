@@ -39,14 +39,18 @@ type InstrucaoGeometricaMeta = {
   especificado: string;
   campoA: string;
   campoB?: string;
+  campoC?: string;
+  campoD?: string;
 };
 
 const INSTRUCAO_GEOMETRICA_META: InstrucaoGeometricaMeta[] = [
   {
     item: "ITEM 1.1",
     especificado: "A e B - Max 0,06 / total",
-    campoA: "A - Longitudinal (eixo X) encontrado (mm)",
-    campoB: "B - Transversal (eixo Y) encontrado (mm)",
+    campoA: "A - TRANV. ENCONTRADO (mm)",
+    campoB: "A - LONG. ENCONTRADO (mm)",
+    campoC: "B - TRANV. ENCONTRADO (mm)",
+    campoD: "B - LONG. ENCONTRADO (mm)",
   },
   {
     item: "ITEM 1.2",
@@ -165,17 +169,34 @@ function getInstrucaoCabecalho(
   meta?: InstrucaoGeometricaMeta,
 ): Required<ChecklistInstrucaoCabecalho> {
   return {
-    tituloDocumento: index === 0 ? "INSPECAO GEOMETRICA CENTRO DE USINAGEM" : "INSTRUÇÃO COMPLEMENTAR DE INSPEÇÃO",
+    tituloDocumento:
+      answer.instrucaoCabecalho?.tituloDocumento ||
+      (index === 0
+        ? "INSPEÇÃO GEOMÉTRICA CENTRO DE USINAGEM"
+        : "INSTRUÇÃO COMPLEMENTAR DE INSPEÇÃO"),
+    nota: answer.instrucaoCabecalho?.nota || "",
     chaveCabecalho: answer.instrucaoCabecalho?.chaveCabecalho || "",
     edCabecalho: answer.instrucaoCabecalho?.edCabecalho || "",
-    descricao: answer.instrucaoCabecalho?.descricao || answer.itemLabel,
+    descricao: answer.instrucaoCabecalho?.descricao || "",
     elaborado: answer.instrucaoCabecalho?.elaborado || "",
     analisadoAprovado: answer.instrucaoCabecalho?.analisadoAprovado || "",
     data: answer.instrucaoCabecalho?.data || "",
     folha: answer.instrucaoCabecalho?.folha || `${index + 1}/9`,
     chave: answer.instrucaoCabecalho?.chave || (meta?.item || `ITEM ${index + 1}`),
     ed: answer.instrucaoCabecalho?.ed || "",
-    tipo: answer.instrucaoCabecalho?.tipo || "Individual / Coletivo / Fixo",
+    tipo: answer.instrucaoCabecalho?.tipo || "",
+    tipoIndividual:
+      answer.instrucaoCabecalho?.tipoIndividual ||
+      answer.instrucaoCabecalho?.tipo?.split("/")?.[0]?.trim() ||
+      "",
+    tipoColetivo:
+      answer.instrucaoCabecalho?.tipoColetivo ||
+      answer.instrucaoCabecalho?.tipo?.split("/")?.[1]?.trim() ||
+      "",
+    tipoFixo:
+      answer.instrucaoCabecalho?.tipoFixo ||
+      answer.instrucaoCabecalho?.tipo?.split("/")?.[2]?.trim() ||
+      "",
   };
 }
 
@@ -187,6 +208,7 @@ export default function ChecklistFillPage() {
   const [observacoesGerais, setObservacoesGerais] = useState("");
   const [corretivas, setCorretivas] = useState<ChecklistCorrectiveEntry[]>(() => normalizeChecklistCorretivas());
   const [openCalendarIndex, setOpenCalendarIndex] = useState<number | null>(null);
+  const [openInstrucaoCalendarIndex, setOpenInstrucaoCalendarIndex] = useState<number | null>(null);
   const checklistHeaderRef = useRef<HTMLDivElement | null>(null);
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
 
@@ -325,6 +347,27 @@ export default function ChecklistFillPage() {
             label: `${meta.item} - ${meta.campoB}`,
           };
         }
+
+        if (meta?.campoC && !answer.valorEncontrado2?.trim()) {
+          return {
+            fieldKey: `item:${answer.itemId}:valorEncontrado2`,
+            label: `${meta.item} - ${meta.campoC}`,
+          };
+        }
+
+        if (meta?.campoD && !answer.valorAtual2?.trim()) {
+          return {
+            fieldKey: `item:${answer.itemId}:valorAtual2`,
+            label: `${meta.item} - ${meta.campoD}`,
+          };
+        }
+
+        if (!answer.preenchimentoManual?.trim()) {
+          return {
+            fieldKey: `item:${answer.itemId}:preenchimentoManual`,
+            label: `${meta?.item || answer.itemLabel} - Preenchimento manual`,
+          };
+        }
       }
     } else {
       for (const answer of answers) {
@@ -385,7 +428,16 @@ export default function ChecklistFillPage() {
 
   const updateAnswer = (
     itemId: string,
-    field: "resultado" | "revisado" | "trocado" | "statusLivre" | "valorEncontrado" | "valorAtual",
+    field:
+      | "resultado"
+      | "revisado"
+      | "trocado"
+      | "statusLivre"
+      | "valorEncontrado"
+      | "valorAtual"
+      | "valorEncontrado2"
+      | "valorAtual2"
+      | "preenchimentoManual",
     value: ChecklistItemResult | ChecklistBinaryChoice | string,
   ) => {
     setAnswers((current) => current.map((answer) => (answer.itemId === itemId ? { ...answer, [field]: value } : answer)));
@@ -904,6 +956,7 @@ export default function ChecklistFillPage() {
                     const meta = INSTRUCAO_GEOMETRICA_META[index];
                     const imageSrc = `${INSTRUCAO_GEOMETRICA_IMAGE_BASE_PATH}/items/item-1-${index + 1}.png`;
                     const cabecalho = getInstrucaoCabecalho(answer, index, meta);
+                    const itemDescription = answer.itemLabel.replace(/^[^-]+-\s*/, "");
 
                     return (
                       <div key={answer.itemId} className="rounded-lg border overflow-hidden">
@@ -912,7 +965,7 @@ export default function ChecklistFillPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-12">
                               <div className="sm:col-span-8 border-b sm:border-r p-2">
                                 <p className="font-semibold">Titulo</p>
-                                <p className="mt-1 text-[11px] sm:text-xs font-medium">{cabecalho.tituloDocumento}</p>
+                                <p className="mt-1 text-[11px] sm:text-xs font-medium">{cabecalho.tituloDocumento || "-"}</p>
                               </div>
                               <div className="sm:col-span-3 border-b sm:border-r p-2">
                                 <p className="font-semibold">CHAVE</p>
@@ -920,6 +973,7 @@ export default function ChecklistFillPage() {
                                   rows={2}
                                   className="mt-1 min-h-14 text-xs resize-y"
                                   value={cabecalho.chaveCabecalho}
+                                  placeholder="Insira a chave"
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "chaveCabecalho", event.target.value)}
                                 />
                               </div>
@@ -929,6 +983,7 @@ export default function ChecklistFillPage() {
                                   rows={2}
                                   className="mt-1 min-h-14 text-xs resize-y"
                                   value={cabecalho.edCabecalho}
+                                  placeholder="ED"
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "edCabecalho", event.target.value)}
                                 />
                               </div>
@@ -941,6 +996,7 @@ export default function ChecklistFillPage() {
                                   rows={2}
                                   className="mt-1 min-h-14 text-xs resize-y"
                                   value={cabecalho.descricao}
+                                  placeholder="Insira a descrição"
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "descricao", event.target.value)}
                                 />
                               </div>
@@ -964,13 +1020,56 @@ export default function ChecklistFillPage() {
                               </div>
                               <div className="sm:col-span-2 border-b p-2">
                                 <p className="font-semibold">Data</p>
-                                <Textarea
-                                  rows={2}
-                                  placeholder="dd/mm/aaaa"
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.data}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "data", event.target.value)}
-                                />
+                                <Popover
+                                  open={openInstrucaoCalendarIndex === index}
+                                  onOpenChange={(open) => setOpenInstrucaoCalendarIndex(open ? index : null)}
+                                >
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal mt-1 px-2",
+                                        !cabecalho.data && "text-muted-foreground",
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {formatDateToDisplay(cabecalho.data)}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[280px] p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={parseIsoDate(cabecalho.data)}
+                                      onSelect={(selectedDate) => {
+                                        if (!selectedDate) {
+                                          return;
+                                        }
+
+                                        updateInstrucaoCabecalho(answer.itemId, "data", toIsoDate(selectedDate));
+                                        setOpenInstrucaoCalendarIndex(null);
+                                      }}
+                                      footer={
+                                        <div className="border-t p-2">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="w-full"
+                                            onClick={() => {
+                                              const today = new Date();
+                                              updateInstrucaoCabecalho(answer.itemId, "data", toIsoDate(today));
+                                              setOpenInstrucaoCalendarIndex(null);
+                                            }}
+                                          >
+                                            HOJE
+                                          </Button>
+                                        </div>
+                                      }
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
                               </div>
                             </div>
 
@@ -984,63 +1083,282 @@ export default function ChecklistFillPage() {
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "folha", event.target.value)}
                                 />
                               </div>
-                              <div className="sm:col-span-9 border-b p-2">
-                                <p className="font-semibold">Tipo</p>
+                              <div className="sm:col-span-3 border-b sm:border-r p-2">
+                                <p className="font-semibold">Individual</p>
                                 <Textarea
                                   rows={2}
                                   className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.tipo}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipo", event.target.value)}
+                                  value={cabecalho.tipoIndividual}
+                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoIndividual", event.target.value)}
+                                />
+                              </div>
+                              <div className="sm:col-span-3 border-b sm:border-r p-2">
+                                <p className="font-semibold">Coletivo</p>
+                                <Textarea
+                                  rows={2}
+                                  className="mt-1 min-h-14 text-xs resize-y"
+                                  value={cabecalho.tipoColetivo}
+                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoColetivo", event.target.value)}
+                                />
+                              </div>
+                              <div className="sm:col-span-3 border-b p-2">
+                                <p className="font-semibold">Fixo</p>
+                                <Textarea
+                                  rows={2}
+                                  className="mt-1 min-h-14 text-xs resize-y"
+                                  value={cabecalho.tipoFixo}
+                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoFixo", event.target.value)}
                                 />
                               </div>
                             </div>
                           </div>
 
+                          <div className="rounded-md border overflow-hidden bg-muted/10 p-3 text-xs space-y-3">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold uppercase tracking-wide">NOTA</span>
+                              </div>
+                              <Textarea
+                                rows={2}
+                                className="w-full text-xs"
+                                placeholder="Insira a nota aqui"
+                                value={cabecalho.nota}
+                                onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "nota", event.target.value)}
+                              />
+                            </div>
+                            <div className="text-center space-y-1">
+                              <p className="text-sm font-bold uppercase tracking-wide">ITEM 1 - TESTES GEOMÉTRICOS</p>
+                              <p className="text-sm font-semibold uppercase">{meta?.item}</p>
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="font-semibold uppercase">DESCRIÇÃO:</span>
+                                <span className="font-medium text-[11px] uppercase text-muted-foreground whitespace-pre-line">{itemDescription}</span>
+                              </div>
+                            </div>
+                            </div>
+
                           <div className="space-y-2">
-                            <Label>Figura de referencia</Label>
-                            <div className="rounded-md border overflow-hidden bg-muted/20">
+                            <div className="rounded-md border overflow-hidden bg-muted/20 min-h-[260px] sm:min-h-[320px] flex items-center justify-center">
                               <img
                                 src={imageSrc}
-                                alt={`Figura de referencia ${meta?.item || `item-${index + 1}`}`}
-                                className="w-full h-auto"
+                                alt={`Figura de referencia ${meta?.item || "item-" + (index + 1)}`}
+                                className="max-w-full max-h-full object-contain"
                                 loading="lazy"
+                              />
+                            </div>
+                            <div className="border rounded-md p-4 bg-white min-h-[80px]">
+                              <Textarea
+                                placeholder="Insira as informações aqui"
+                                className="w-full resize-y"
+                                rows={3}
+                                value={answer.preenchimentoManual || ""}
+                                onChange={(event) => updateAnswer(answer.itemId, "preenchimentoManual", event.target.value)}
                               />
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                            <div>
-                              <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
-                              <Input
-                                ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                type="number"
-                                inputMode="decimal"
-                                step="any"
-                                placeholder="0"
-                                className="mt-1"
-                                value={answer.valorEncontrado || ""}
-                                onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                              />
-                            </div>
+                          {index === 0 && meta ? (
+                            <div className="rounded-md border overflow-hidden bg-muted/10 p-4 text-base text-center">
+                              <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-2 items-stretch">
+                                <div className="border p-4 text-center flex flex-col items-center justify-center">
+                                  <p className="font-semibold uppercase text-lg">ESPECIFICADO</p>
+                                  <div className="mt-3 leading-relaxed uppercase">
+                                    <p className="text-base">A - DIREÇÃO DO EIXO "X" (LONGITUDINAL)</p>
+                                    <p className="text-base">B - DIREÇÃO DO EIXO "Y" (TRANSVERSAL)</p>
+                                    <p className="mt-3 text-base font-semibold">{meta.especificado}</p>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-[10px] uppercase h-full">
+                                  <div className="border p-2 bg-slate-50" />
+                                  <div className="border p-2 text-center font-semibold">TRANV.</div>
+                                  <div className="border p-2 text-center font-semibold">LONG.</div>
 
-                            {meta?.campoB ? (
+                                  <div className="border p-2 text-center font-semibold flex items-center justify-center min-h-[6rem]">A</div>
+                                  <div className="border p-2 flex flex-col justify-center min-h-[6rem]">
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="w-full"
+                                      value={answer.valorEncontrado || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                    />
+                                  </div>
+                                  <div className="border p-2 flex flex-col justify-center min-h-[6rem]">
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="w-full"
+                                      value={answer.valorAtual || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                    />
+                                  </div>
+
+                                  <div className="border p-2 text-center font-semibold flex items-center justify-center min-h-[6rem]">B</div>
+                                  <div className="border p-2 flex flex-col justify-center min-h-[6rem]">
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="w-full"
+                                      value={answer.valorEncontrado2 || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                    />
+                                  </div>
+                                  <div className="border p-2 flex flex-col justify-center min-h-[6rem]">
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="w-full"
+                                      value={answer.valorAtual2 || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {index === 0 && meta ? null : meta?.campoC && meta?.campoD ? (
+                            <div className="rounded-md border p-3 text-[10px] uppercase">
+                              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-center font-semibold">
+                                <div />
+                                <div>TRANV.</div>
+                                <div>LONG.</div>
+                              </div>
+                              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 mt-2 items-start">
+                                <div className="flex items-center justify-center font-semibold">A</div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorEncontrado || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorAtual || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 mt-3 items-start">
+                                <div className="flex items-center justify-center font-semibold">B</div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorEncontrado2 || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorAtual2 || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                               <div>
-                                <Label>{meta.campoB}</Label>
+                                <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
                                 <Input
-                                  ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                  ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
                                   type="number"
                                   inputMode="decimal"
                                   step="any"
                                   placeholder="0"
                                   className="mt-1"
-                                  value={answer.valorAtual || ""}
-                                  onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                  value={answer.valorEncontrado || ""}
+                                  onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
                                 />
                               </div>
-                            ) : (
-                              <div className="hidden sm:block" />
-                            )}
-                          </div>
+
+                              {meta?.campoB ? (
+                                <div>
+                                  <Label>{meta.campoB}</Label>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorAtual || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                  />
+                                </div>
+                              ) : null}
+
+                              {meta?.campoC ? (
+                                <div>
+                                  <Label>{meta.campoC}</Label>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorEncontrado2 || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                  />
+                                </div>
+                              ) : null}
+
+                              {meta?.campoD ? (
+                                <div>
+                                  <Label>{meta.campoD}</Label>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorAtual2 || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

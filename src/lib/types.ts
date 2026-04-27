@@ -81,6 +81,7 @@ export type ChecklistBinaryChoice = 'sim' | 'nao';
 
 export interface ChecklistInstrucaoCabecalho {
   tituloDocumento?: string;
+  nota?: string;
   chaveCabecalho?: string;
   edCabecalho?: string;
   descricao?: string;
@@ -91,6 +92,9 @@ export interface ChecklistInstrucaoCabecalho {
   chave?: string;
   ed?: string;
   tipo?: string;
+  tipoIndividual?: string;
+  tipoColetivo?: string;
+  tipoFixo?: string;
 }
 
 export interface ChecklistAnswer {
@@ -102,6 +106,9 @@ export interface ChecklistAnswer {
   statusLivre?: string;
   valorEncontrado?: string;
   valorAtual?: string;
+  valorEncontrado2?: string;
+  valorAtual2?: string;
+  preenchimentoManual?: string;
   instrucaoCabecalho?: ChecklistInstrucaoCabecalho;
   observacao: string;
 }

@@ -1,0 +1,180 @@
+ 920:                     const meta = INSTRUCAO_GEOMETRICA_META[index];
+ 921:                     const imageSrc = `${INSTRUCAO_GEOMETRICA_IMAGE_BASE_PATH}/items/item-1-${index + 1}.png`;
+ 922:                     const cabecalho = getInstrucaoCabecalho(answer, index, meta);
+ 923:                     const itemDescription = answer.itemLabel.replace(/^[^-]+-\s*/, "");
+ 924: 
+ 925:                     return (
+ 926:                       <div key={answer.itemId} className="rounded-lg border overflow-hidden">
+ 927:                         <div className="p-3 sm:p-4 space-y-3">
+ 928:                           <div className="rounded-md border overflow-hidden text-xs">
+ 929:                             <div className="grid grid-cols-1 sm:grid-cols-12">
+ 930:                               <div className="sm:col-span-8 border-b sm:border-r p-2">
+ 931:                                 <p className="font-semibold">Titulo</p>
+ 932:                                 <p className="mt-1 text-[11px] sm:text-xs font-medium">{cabecalho.tituloDocumento || "-"}</p>
+ 933:                               </div>
+ 934:                               <div className="sm:col-span-2 border-b sm:border-r p-2">
+ 935:                                 <p className="font-semibold">CHAVE</p>
+ 936:                                 <Textarea
+ 937:                                   rows={2}
+ 938:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 939:                                   value={cabecalho.chaveCabecalho}
+ 940:                                   placeholder="Insira a chave"
+ 941:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "chaveCabecalho", event.target.value)}
+ 942:                                 />
+ 943:                               </div>
+ 944:                               <div className="sm:col-span-1 border-b p-2">
+ 945:                                 <p className="font-semibold">ED.</p>
+ 946:                                 <Textarea
+ 947:                                   rows={2}
+ 948:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 949:                                   value={cabecalho.edCabecalho}
+ 950:                                   placeholder="ED"
+ 951:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "edCabecalho", event.target.value)}
+ 952:                                 />
+ 953:                               </div>
+ 954:                             </div>
+ 955: 
+ 956:                             <div className="grid grid-cols-1 sm:grid-cols-12">
+ 957:                               <div className="sm:col-span-5 border-b sm:border-r p-2">
+ 958:                                 <p className="font-semibold">Descricao</p>
+ 959:                                 <Textarea
+ 960:                                   rows={2}
+ 961:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 962:                                   value={cabecalho.descricao}
+ 963:                                   placeholder="Insira a descrição"
+ 964:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "descricao", event.target.value)}
+ 965:                                 />
+ 966:                               </div>
+ 967:                               <div className="sm:col-span-2 border-b sm:border-r p-2">
+ 968:                                 <p className="font-semibold">Elaborado</p>
+ 969:                                 <Textarea
+ 970:                                   rows={2}
+ 971:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 972:                                   value={cabecalho.elaborado}
+ 973:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "elaborado", event.target.value)}
+ 974:                                 />
+ 975:                               </div>
+ 976:                               <div className="sm:col-span-3 border-b sm:border-r p-2">
+ 977:                                 <p className="font-semibold">Analisado / Aprovado</p>
+ 978:                                 <Textarea
+ 979:                                   rows={2}
+ 980:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 981:                                   value={cabecalho.analisadoAprovado}
+ 982:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "analisadoAprovado", event.target.value)}
+ 983:                                 />
+ 984:                               </div>
+ 985:                             </div>
+ 986: 
+ 987:                             <div className="grid grid-cols-1 sm:grid-cols-12">
+ 988:                               <div className="sm:col-span-3 border-b sm:border-r p-2">
+ 989:                                 <p className="font-semibold">Folha</p>
+ 990:                                 <Textarea
+ 991:                                   rows={2}
+ 992:                                   className="mt-1 min-h-14 text-xs resize-y"
+ 993:                                   value={cabecalho.folha}
+ 994:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "folha", event.target.value)}
+ 995:                                 />
+ 996:                               </div>
+ 997:                               <div className="sm:col-span-3 border-b sm:border-r p-2">
+ 998:                                 <p className="font-semibold">Individual</p>
+ 999:                                 <Textarea
+1000:                                   rows={2}
+1001:                                   className="mt-1 min-h-14 text-xs resize-y"
+1002:                                   value={cabecalho.tipoIndividual}
+1003:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoIndividual", event.target.value)}
+1004:                                 />
+1005:                               </div>
+1006:                               <div className="sm:col-span-3 border-b sm:border-r p-2">
+1007:                                 <p className="font-semibold">Coletivo</p>
+1008:                                 <Textarea
+1009:                                   rows={2}
+1010:                                   className="mt-1 min-h-14 text-xs resize-y"
+1011:                                   value={cabecalho.tipoColetivo}
+1012:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoColetivo", event.target.value)}
+1013:                                 />
+1014:                               </div>
+1015:                               <div className="sm:col-span-3 border-b p-2">
+1016:                                 <p className="font-semibold">Fixo</p>
+1017:                                 <Textarea
+1018:                                   rows={2}
+1019:                                   className="mt-1 min-h-14 text-xs resize-y"
+1020:                                   value={cabecalho.tipoFixo}
+1021:                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoFixo", event.target.value)}
+1022:                                 />
+1023:                               </div>
+1024:                             </div>
+1025:                           </div>
+1026: 
+1027:                           <div className="rounded-md border overflow-hidden bg-muted/10 p-3 text-xs space-y-3">
+1028:                             <div className="space-y-3">
+1029:                               <div className="flex items-center gap-3">
+1030:                                 <span className="font-semibold uppercase tracking-wide">NOTA</span>
+1031:                               </div>
+1032:                               <Textarea
+1033:                                 rows={2}
+1034:                                 className="w-full text-xs"
+1035:                                 placeholder="Insira a nota aqui"
+1036:                                 value={cabecalho.nota}
+1037:                                 onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "nota", event.target.value)}
+1038:                               />
+1039:                             </div>
+1040:                             <div className="text-center space-y-1">
+1041:                               <p className="text-sm font-bold uppercase tracking-wide">ITEM 1 - TESTES GEOMÉTRICOS</p>
+1042:                               <p className="text-sm font-semibold uppercase">{meta?.item}</p>
+1043:                               <div className="flex items-center justify-center gap-2">
+1044:                                 <span className="font-semibold uppercase">DESCRIÇÃO:</span>
+1045:                                 <span className="font-medium text-[11px] uppercase text-muted-foreground whitespace-pre-line">{itemDescription}</span>
+1046:                               </div>
+1047:                             </div>
+1048: 
+1049:                           <div className="space-y-2">
+1050:                             <div className="rounded-md border overflow-hidden bg-muted/20 min-h-[260px] sm:min-h-[320px] flex items-center justify-center">
+1051:                               <img
+1052:                                 src={imageSrc}
+1053:                                 alt={`Figura de referencia ${meta?.item || "item-" + (index + 1)}`}
+1054:                                 className="max-w-full max-h-full object-contain"
+1055:                                 loading="lazy"
+1056:                               />
+1057:                             </div>
+1058:                           </div>
+1059: 
+1060:                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+1061:                             <div>
+1062:                               <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
+1063:                               <Input
+1064:                                 ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+1065:                                 type="number"
+1066:                                 inputMode="decimal"
+1067:                                 step="any"
+1068:                                 placeholder="0"
+1069:                                 className="mt-1"
+1070:                                 value={answer.valorEncontrado || ""}
+1071:                                 onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+1072:                               />
+1073:                             </div>
+1074: 
+1075:                             {meta?.campoB ? (
+1076:                               <div>
+1077:                                 <Label>{meta.campoB}</Label>
+1078:                                 <Input
+1079:                                   ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+1080:                                   type="number"
+1081:                                   inputMode="decimal"
+1082:                                   step="any"
+1083:                                   placeholder="0"
+1084:                                   className="mt-1"
+1085:                                   value={answer.valorAtual || ""}
+1086:                                   onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+1087:                                 />
+1088:                               </div>
+1089:                             ) : (
+1090:                               <div className="hidden sm:block" />
+1091:                             )}
+1092:                           </div>
+1093:                         </div>
+1094:                       </div>
+1095:                     );
+1096:                   })}
+1097:                 </div>
+1098:               </div>
+1099:             ) : (
