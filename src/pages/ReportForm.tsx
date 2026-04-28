@@ -51,6 +51,8 @@ export default function ReportForm() {
   const [saving, setSaving] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState('');
+  const [kitSearchTerm, setKitSearchTerm] = useState('');
+  const [kitPartQuantities, setKitPartQuantities] = useState<Record<string, string>>({});
   const isEditing = Boolean(id);
 
   const [form, setForm] = useState<Partial<Report>>({
@@ -123,9 +125,45 @@ export default function ReportForm() {
     return clients.filter(client => client.ativo || client.id === form.clienteId);
   }, [clients, form.clienteId]);
 
+  const canManageAllKits = currentUser.perfil === 'admin';
+
   const availablePartKits = useMemo(() => {
-    return partKits.filter(kit => kit.tecnicoId === currentUser.id);
-  }, [partKits, currentUser.id]);
+    return canManageAllKits ? partKits : partKits.filter(kit => kit.tecnicoId === currentUser.id);
+  }, [partKits, canManageAllKits, currentUser.id]);
+
+  const selectedKit = useMemo(
+    () => availablePartKits.find(item => item.id === selectedKitId),
+    [availablePartKits, selectedKitId],
+  );
+
+  const selectedKitParts = useMemo(() => {
+    if (!selectedKit) return [];
+
+    const search = kitSearchTerm.trim().toLowerCase();
+    return selectedKit.pecas
+      .map((part, index) => ({ part, index }))
+      .filter(({ part }) => {
+        if (!search) return true;
+
+        const descricao = part.descricao?.toLowerCase() || '';
+        const observacao = part.observacao?.toLowerCase() || '';
+        const quantidade = String(part.quantidade || '');
+        return descricao.includes(search) || observacao.includes(search) || quantidade.includes(search);
+      });
+  }, [kitSearchTerm, selectedKit]);
+
+  useEffect(() => {
+    if (!selectedKit) {
+      setKitSearchTerm('');
+      setKitPartQuantities({});
+      return;
+    }
+
+    if (selectedKit.pecas.length === 0) {
+      setKitPartQuantities({});
+      return;
+    }
+  }, [selectedKit]);
 
   const update = useCallback((field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -188,22 +226,38 @@ export default function ReportForm() {
     update('pecas', pecas);
   };
 
-  const addKit = (kitId: string) => {
+  const addKitPart = (kitId: string, partIndex: number, quantidade: number) => {
     const kit = availablePartKits.find(item => item.id === kitId);
     if (!kit) return;
 
-    const kitParts: ReportPart[] = kit.pecas.map((part, index) => ({
-      id: `${kit.id}-${Date.now()}-${index}`,
+    const part = kit.pecas[partIndex];
+    if (!part) return;
+
+    const quantidadeDebitada = Number.isFinite(quantidade) ? Math.max(1, Math.floor(quantidade)) : 1;
+
+    const kitPart: ReportPart = {
+      id: `${kit.id}-${Date.now()}-${partIndex}`,
       descricao: part.descricao,
-      quantidade: part.quantidade,
+      quantidade: quantidadeDebitada,
       observacao: part.observacao || '',
       origem: 'kit',
       kitId: kit.id,
       kitNome: kit.nome,
-    }));
+    };
 
-    update('pecas', [...(form.pecas || []), ...kitParts]);
-    setSelectedKitId('');
+    update('pecas', [...(form.pecas || []), kitPart]);
+  };
+
+  const getKitPartQuantity = (kitId: string, partIndex: number) => {
+    const quantity = kitPartQuantities[`${kitId}:${partIndex}`];
+    return quantity || '1';
+  };
+
+  const setKitPartQuantity = (kitId: string, partIndex: number, value: string) => {
+    setKitPartQuantities(prev => ({
+      ...prev,
+      [`${kitId}:${partIndex}`]: value,
+    }));
   };
 
   const removePart = (partId: string) => {
@@ -508,26 +562,94 @@ export default function ReportForm() {
         {/* Step 4: Parts */}
         {step === 4 && (
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle>Peças e Materiais</CardTitle>
-              <div className="flex flex-wrap gap-2 justify-end items-center">
-                <Select value={selectedKitId} onValueChange={setSelectedKitId}>
-                  <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecionar kit" /></SelectTrigger>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end sm:items-center">
+                <Select
+                  value={selectedKitId}
+                  onValueChange={(value) => {
+                    setSelectedKitId(value);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-[220px]"><SelectValue placeholder="Selecionar kit" /></SelectTrigger>
                   <SelectContent>
                     {availablePartKits.map(kit => (
                       <SelectItem key={kit.id} value={kit.id}>{kit.nome}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" variant="outline" onClick={() => selectedKitId && addKit(selectedKitId)} disabled={!selectedKitId}>
-                  <Plus className="h-4 w-4 mr-1" />Adicionar kit
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => addPart('avulso')}><Plus className="h-4 w-4 mr-1" />Avulso</Button>
+                <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => addPart('avulso')}><Plus className="h-4 w-4 mr-1" />Avulso</Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {(form.pecas || []).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma peça adicionada.</p>
+              )}
+              {selectedKit && selectedKit.pecas.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold">Peças do kit</h3>
+                      <p className="text-xs text-muted-foreground">Digite a quantidade de cada peça e debite direto na linha correspondente.</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{selectedKit.pecas.length} item(ns)</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="kit-search" className="text-xs text-muted-foreground">Buscar peça</Label>
+                      <Input
+                        id="kit-search"
+                        value={kitSearchTerm}
+                        onChange={(event) => setKitSearchTerm(event.target.value)}
+                        placeholder="Buscar por descrição, observação ou quantidade"
+                      />
+                    </div>
+                    {selectedKitParts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground rounded-md border border-dashed px-3 py-4 text-center">
+                        Nenhuma peça encontrada para a busca atual.
+                      </p>
+                    ) : null}
+                    <div className="space-y-2">
+                      {selectedKitParts.map(({ part, index }) => {
+                        const quantityValue = getKitPartQuantity(selectedKit.id, index);
+
+                        return (
+                          <div key={`${selectedKit.id}-${index}`} className="rounded-md border bg-background p-3 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium">{part.descricao}</p>
+                                {part.observacao ? (
+                                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{part.observacao}</p>
+                                ) : null}
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">estoque do kit: x{part.quantidade}</span>
+                            </div>
+                            <div className="flex flex-wrap items-end gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Qtd a debitar</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  step={1}
+                                  value={quantityValue}
+                                  onChange={(event) => setKitPartQuantity(selectedKit.id, index, event.target.value)}
+                                  className="w-[110px]"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => addKitPart(selectedKit.id, index, Number(quantityValue))}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />Debitar
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
               {([...new Map((form.pecas || []).filter(part => part.origem === 'kit').map(part => [part.kitId || part.kitNome || 'Kit', part.kitNome || 'Kit'])).entries()] as Array<[string, string]>).map(([kitKey, kitNome]) => {
                 const itens = (form.pecas || []).filter(part => (part.origem || 'avulso') === 'kit' && (part.kitId || part.kitNome || 'Kit') === kitKey);

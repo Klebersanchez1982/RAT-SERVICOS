@@ -967,26 +967,6 @@ export default function ChecklistFillPage() {
                                 <p className="font-semibold">Titulo</p>
                                 <p className="mt-1 text-[11px] sm:text-xs font-medium">{cabecalho.tituloDocumento || "-"}</p>
                               </div>
-                              <div className="sm:col-span-3 border-b sm:border-r p-2">
-                                <p className="font-semibold">CHAVE</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.chaveCabecalho}
-                                  placeholder="Insira a chave"
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "chaveCabecalho", event.target.value)}
-                                />
-                              </div>
-                              <div className="sm:col-span-1 border-b p-2">
-                                <p className="font-semibold">ED.</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.edCabecalho}
-                                  placeholder="ED"
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "edCabecalho", event.target.value)}
-                                />
-                              </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-12">
@@ -1009,15 +989,7 @@ export default function ChecklistFillPage() {
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "elaborado", event.target.value)}
                                 />
                               </div>
-                              <div className="sm:col-span-3 border-b sm:border-r p-2">
-                                <p className="font-semibold">Analisado / Aprovado</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.analisadoAprovado}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "analisadoAprovado", event.target.value)}
-                                />
-                              </div>
+
                               <div className="sm:col-span-2 border-b p-2">
                                 <p className="font-semibold">Data</p>
                                 <Popover
@@ -1073,44 +1045,7 @@ export default function ChecklistFillPage() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-12">
-                              <div className="sm:col-span-3 border-b sm:border-r p-2">
-                                <p className="font-semibold">Folha</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.folha}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "folha", event.target.value)}
-                                />
-                              </div>
-                              <div className="sm:col-span-3 border-b sm:border-r p-2">
-                                <p className="font-semibold">Individual</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.tipoIndividual}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoIndividual", event.target.value)}
-                                />
-                              </div>
-                              <div className="sm:col-span-3 border-b sm:border-r p-2">
-                                <p className="font-semibold">Coletivo</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.tipoColetivo}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoColetivo", event.target.value)}
-                                />
-                              </div>
-                              <div className="sm:col-span-3 border-b p-2">
-                                <p className="font-semibold">Fixo</p>
-                                <Textarea
-                                  rows={2}
-                                  className="mt-1 min-h-14 text-xs resize-y"
-                                  value={cabecalho.tipoFixo}
-                                  onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "tipoFixo", event.target.value)}
-                                />
-                              </div>
-                            </div>
+
                           </div>
 
                           <div className="rounded-md border overflow-hidden bg-muted/10 p-3 text-xs space-y-3">
@@ -1166,6 +1101,11 @@ export default function ChecklistFillPage() {
                                     <p className="text-base">B - DIREÇÃO DO EIXO "Y" (TRANSVERSAL)</p>
                                     <p className="mt-3 text-base font-semibold">{meta.especificado}</p>
                                   </div>
+                                  {meta?.item === "ITEM 1.1" ? (
+                                    <div className="mt-4 pt-4 border-t border-primary/20 w-full">
+                                      <p className="text-sm font-semibold">Meios de Controle: Nível Linear</p>
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 text-[10px] uppercase h-full">
                                   <div className="border p-2 bg-slate-50" />
@@ -1295,69 +1235,81 @@ export default function ChecklistFillPage() {
                               </div>
                             </div>
                           ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                              <div>
-                                <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
-                                <Input
-                                  ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="any"
-                                  placeholder="0"
-                                  className="mt-1"
-                                  value={answer.valorEncontrado || ""}
-                                  onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                                />
+                            <>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                                <div>
+                                  <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
+                                  <Input
+                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="any"
+                                    placeholder="0"
+                                    className="mt-1"
+                                    value={answer.valorEncontrado || ""}
+                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                  />
+                                </div>
+
+                                {meta?.campoB ? (
+                                  <div>
+                                    <Label>{meta.campoB}</Label>
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="mt-1"
+                                      value={answer.valorAtual || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                    />
+                                  </div>
+                                ) : null}
+
+                                {meta?.campoC ? (
+                                  <div>
+                                    <Label>{meta.campoC}</Label>
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="mt-1"
+                                      value={answer.valorEncontrado2 || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                    />
+                                  </div>
+                                ) : null}
+
+                                {meta?.campoD ? (
+                                  <div>
+                                    <Label>{meta.campoD}</Label>
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="mt-1"
+                                      value={answer.valorAtual2 || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                    />
+                                  </div>
+                                ) : null}
                               </div>
 
-                              {meta?.campoB ? (
-                                <div>
-                                  <Label>{meta.campoB}</Label>
-                                  <Input
-                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="any"
-                                    placeholder="0"
-                                    className="mt-1"
-                                    value={answer.valorAtual || ""}
-                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
-                                  />
+                              {meta?.item === "ITEM 1.2" ? (
+                                <div className="border rounded-md p-4 bg-white text-sm mt-2">
+                                  <p className="font-semibold">Meios de Controle:</p>
+                                  <div className="mt-2 space-y-1">
+                                    <p className="font-medium">Relógio Milesimal</p>
+                                    <p className="font-medium">Haste</p>
+                                  </div>
                                 </div>
                               ) : null}
-
-                              {meta?.campoC ? (
-                                <div>
-                                  <Label>{meta.campoC}</Label>
-                                  <Input
-                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="any"
-                                    placeholder="0"
-                                    className="mt-1"
-                                    value={answer.valorEncontrado2 || ""}
-                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
-                                  />
-                                </div>
-                              ) : null}
-
-                              {meta?.campoD ? (
-                                <div>
-                                  <Label>{meta.campoD}</Label>
-                                  <Input
-                                    ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="any"
-                                    placeholder="0"
-                                    className="mt-1"
-                                    value={answer.valorAtual2 || ""}
-                                    onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
+                            </>
                           )}
                         </div>
                       </div>
