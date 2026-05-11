@@ -32,7 +32,7 @@ const steps = [
   { id: 2, title: "Equipamento" },
   { id: 3, title: "Serviço" },
   { id: 4, title: "Peças e Materiais" },
-  { id: 5, title: "Deslocamento" },
+  { id: 5, title: "Atendimento" },
   { id: 6, title: "Checklist" },
   { id: 7, title: "Fotos" },
   { id: 8, title: "Revisão" },
@@ -59,6 +59,7 @@ export default function ReportForm() {
     tipoManutencao: 'corretiva',
     pecas: [],
     fotos: [],
+    atendimentos: [],
     checklistStatus: 'pendente',
     horasTrabalho: 0,
     pedagio: 0,
@@ -80,7 +81,7 @@ export default function ReportForm() {
     });
     getPartKits().then(setPartKits);
     if (id) {
-      getReportById(id).then(r => { if (r) setForm(r); });
+      getReportById(id).then(r => { if (r) setForm(migrateAtendimentos(r)); });
       if (isRemoteBackendEnabled()) {
         getReportPhotos(id).then((photos) => {
           setForm(prev => ({ ...prev, fotos: photos }));
@@ -165,6 +166,23 @@ export default function ReportForm() {
     }
   }, [selectedKit]);
 
+  const migrateAtendimentos = (report: Partial<Report>) => {
+    if (!report.atendimentos || report.atendimentos.length === 0) {
+      if ((report.deslocamentoIda || report.deslocamentoVolta) && report.dataAbertura) {
+        return {
+          ...report,
+          atendimentos: [{
+            id: String(Date.now()),
+            data: report.dataAbertura,
+            horaChegada: report.deslocamentoIda || '',
+            horaSaida: report.deslocamentoVolta || ''
+          }]
+        };
+      }
+    }
+    return report;
+  };
+
   const update = useCallback((field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
   }, []);
@@ -208,6 +226,21 @@ export default function ReportForm() {
     update('veiculoId', vId);
     update('veiculoDescricao', v?.descricao || '');
     update('placa', v?.placa || '');
+  };
+
+  const addAtendimento = () => {
+    const atendimentos = [...(form.atendimentos || []), { id: String(Date.now()), data: '', horaChegada: '', horaSaida: '' }];
+    update('atendimentos', atendimentos);
+  };
+
+  const removeAtendimento = (id: string) => {
+    const atendimentos = (form.atendimentos || []).filter(d => d.id !== id);
+    update('atendimentos', atendimentos);
+  };
+
+  const updateAtendimento = (id: string, field: 'data' | 'horaChegada' | 'horaSaida', value: string) => {
+    const atendimentos = (form.atendimentos || []).map(d => d.id === id ? { ...d, [field]: value } : d);
+    update('atendimentos', atendimentos);
   };
 
   const addPart = (origem: 'kit' | 'avulso') => {
@@ -705,7 +738,7 @@ export default function ReportForm() {
         {/* Step 5: Travel */}
         {step === 5 && (
           <Card>
-            <CardHeader><CardTitle>Deslocamento e Despesas</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Atendimento e Despesas</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Veículo</Label>
@@ -721,14 +754,39 @@ export default function ReportForm() {
                   <Input value={form.placa || ''} readOnly className="bg-muted" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Hora Saída</Label>
-                  <Input type="time" value={form.deslocamentoIda || ''} onChange={e => update('deslocamentoIda', e.target.value)} />
+
+              <div className="border rounded-lg p-4 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold text-sm">Atendimentos</h3>
+                  <Button type="button" size="sm" variant="outline" onClick={addAtendimento}>+ Adicionar</Button>
                 </div>
-                <div><Label>Hora Retorno</Label>
-                  <Input type="time" value={form.deslocamentoVolta || ''} onChange={e => update('deslocamentoVolta', e.target.value)} />
-                </div>
+                {(form.atendimentos || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhum atendimento registrado</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(form.atendimentos || []).map((desc, idx) => (
+                      <div key={desc.id} className="grid grid-cols-1 sm:grid-cols-4 gap-2 p-3 bg-muted/50 rounded">
+                        <div>
+                          <Label className="text-xs">Data</Label>
+                          <Input type="date" value={desc.data} onChange={e => updateAtendimento(desc.id, 'data', e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hora Chegada</Label>
+                          <Input type="time" value={desc.horaChegada} onChange={e => updateAtendimento(desc.id, 'horaChegada', e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Hora Saída</Label>
+                          <Input type="time" value={desc.horaSaida} onChange={e => updateAtendimento(desc.id, 'horaSaida', e.target.value)} />
+                        </div>
+                        <div className="flex items-end">
+                          <Button type="button" size="sm" variant="ghost" className="text-destructive w-full" onClick={() => removeAtendimento(desc.id)}>Remover</Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div><Label>Pedágio (R$)</Label>
                   <Input type="number" value={form.pedagio || 0} onChange={e => update('pedagio', Number(e.target.value))} min={0} step={0.50} />

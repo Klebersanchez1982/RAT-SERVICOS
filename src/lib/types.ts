@@ -154,6 +154,13 @@ export interface PartKit {
   }>;
 }
 
+export interface Atendimento {
+  id: string;
+  data: string;       // YYYY-MM-DD
+  horaChegada: string; // HH:mm
+  horaSaida: string;   // HH:mm
+}
+
 export interface Report {
   id: string;
   numero: string; // RAT-2025-0001
@@ -191,6 +198,7 @@ export interface Report {
   pedagio: number;
   refeicao: number;
   estadia: number;
+  atendimentos?: Atendimento[];
   status: ReportStatus;
   fotos: ReportPhoto[];
   criadoPor: string;

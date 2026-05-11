@@ -106,6 +106,19 @@ export default function ReportDetail() {
     addField("Servico Executado", source.servicoExecutado);
     addField("Informacoes Adicionais", source.informacoesAdicionais);
 
+    if (source.atendimentos && source.atendimentos.length > 0) {
+      ensureSpace(24);
+      addTitle("Atendimentos");
+      source.atendimentos.forEach((desc, index) => {
+        addField(`Dia ${index + 1}`, `${desc.data} - Chegada: ${desc.horaChegada} - Saida: ${desc.horaSaida}`);
+      });
+    } else if (source.deslocamentoIda || source.deslocamentoVolta) {
+      addSpacer();
+      addTitle("Atendimento");
+      addField("Saida", source.deslocamentoIda);
+      addField("Retorno", source.deslocamentoVolta);
+    }
+
     addSpacer();
     addTitle("Despesas");
     addField("Pedagio", formatCurrency(source.pedagio));
@@ -309,13 +322,28 @@ export default function ReportDetail() {
         )}
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Deslocamento e Despesas</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Atendimento e Despesas</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Veículo</span><span className="font-medium">{report.veiculoDescricao} {report.placa}</span></div>
-              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-medium">{report.deslocamentoIda || '—'}</span></div>
-              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Retorno</span><span className="font-medium">{report.deslocamentoVolta || '—'}</span></div>
             </div>
+            {(report.atendimentos && report.atendimentos.length > 0) ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground mt-2">Atendimentos:</p>
+                {report.atendimentos.map((desc, idx) => (
+                  <div key={desc.id} className="grid grid-cols-3 gap-2 p-2 bg-muted/30 rounded text-xs">
+                    <div><span className="text-muted-foreground">Data:</span> <span className="font-medium">{desc.data}</span></div>
+                    <div><span className="text-muted-foreground">Chegada:</span> <span className="font-medium">{desc.horaChegada}</span></div>
+                    <div><span className="text-muted-foreground">Saída:</span> <span className="font-medium">{desc.horaSaida}</span></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-medium">{report.deslocamentoIda || '—'}</span></div>
+                <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Retorno</span><span className="font-medium">{report.deslocamentoVolta || '—'}</span></div>
+              </div>
+            )}
             <Separator />
             <div className="grid grid-cols-3 gap-2">
               <div className="text-center p-2 bg-muted/50 rounded"><p className="text-muted-foreground text-xs">Pedágio</p><p className="font-medium">R$ {report.pedagio.toFixed(2)}</p></div>
