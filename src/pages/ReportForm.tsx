@@ -306,7 +306,7 @@ export default function ReportForm() {
     }
   };
 
-  const handleSave = async (status?: 'rascunho' | 'aberto' | 'finalizado') => {
+  const handleSave = async (status?: 'rascunho' | 'finalizado') => {
     setSaving(true);
     try {
       const saved = await saveReport({
@@ -341,7 +341,7 @@ export default function ReportForm() {
       if (status === 'rascunho') {
         toast.success('Rascunho salvo!');
       } else if (status === 'finalizado') {
-        toast.success('Relatório atualizado e reenviado!');
+        toast.success(isEditing ? 'Relatório atualizado e reenviado!' : 'Relatório finalizado e enviado!');
       } else {
         toast.success(isEditing ? 'Relatório atualizado!' : 'Relatório enviado!');
       }
@@ -868,7 +868,7 @@ export default function ReportForm() {
                   <Send className="h-4 w-4 mr-2" />Salvar e reenviar
                 </Button>
               ) : (
-                <Button onClick={() => handleSave('aberto')} disabled={saving} className="flex-1">
+                <Button onClick={() => handleSave('finalizado')} disabled={saving} className="flex-1">
                   <Send className="h-4 w-4 mr-2" />Enviar
                 </Button>
               )}

@@ -119,3 +119,39 @@
     @apply bg-[hsl(var(--status-closed))] text-[hsl(var(--primary-foreground))];
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .report-print-root,
+  .report-print-root * {
+    visibility: visible;
+  }
+
+  .report-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .report-print-hidden {
+    display: none !important;
+  }
+
+  .report-print-root .report-field-row {
+    display: grid !important;
+    grid-template-columns: 110px 1fr;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .report-print-root .report-field-row > :last-child {
+    text-align: left;
+  }
+}

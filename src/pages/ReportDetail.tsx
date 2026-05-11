@@ -4,12 +4,14 @@ import { AppLayout } from "@/components/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Camera, Edit, Printer, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Camera, Edit, MessageCircle, Printer, RotateCcw, Share2, ZoomIn, ZoomOut } from "lucide-react";
 import { getReportById, hasPermission } from "@/lib/api-service";
 import { Report } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getChecklistTemplateSections } from "@/lib/checklist-templates";
+import jsPDF from "jspdf";
+import { toast } from "sonner";
 
 export default function ReportDetail() {
   const { id } = useParams();
@@ -39,6 +41,174 @@ export default function ReportDetail() {
       setZoom(prev => Math.min(prev + 0.25, 4));
     } else {
       setZoom(prev => Math.max(prev - 0.25, 1));
+    }
+  };
+
+  const sanitizeFileName = (value: string) => value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-");
+
+  const formatCurrency = (value: number) => `R$ ${(value || 0).toFixed(2)}`;
+
+  const buildPdfDocument = (source: Report) => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const marginX = 40;
+    const maxWidth = 515;
+    const lineHeight = 16;
+    let y = 44;
+
+    const ensureSpace = (needed = lineHeight) => {
+      if (y + needed > 800) {
+        doc.addPage();
+        y = 44;
+      }
+    };
+
+    const addTitle = (title: string) => {
+      ensureSpace(24);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(title, marginX, y);
+      y += 22;
+    };
+
+    const addField = (label: string, value?: string) => {
+      const safeValue = value && value.trim().length > 0 ? value : "-";
+      const wrapped = doc.splitTextToSize(`${label}: ${safeValue}`, maxWidth);
+      ensureSpace(wrapped.length * lineHeight + 4);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(wrapped, marginX, y);
+      y += wrapped.length * lineHeight;
+    };
+
+    const addSpacer = (size = 8) => {
+      y += size;
+    };
+
+    addTitle(`Relatorio Tecnico - OS ${source.numero}`);
+    addField("Status", source.status.replace("_", " "));
+    addField("Data", `${source.dataAbertura} ${source.horaAbertura ? `as ${source.horaAbertura}` : ""}`.trim());
+    addField("Tecnico", source.tecnicoNome);
+
+    addSpacer();
+    addTitle("Informacoes Gerais");
+    addField("Tipo", source.tipoManutencao);
+    addField("Cliente", source.clienteNome);
+
+    addSpacer();
+    addTitle("Equipamento");
+    addField("Descricao", source.equipamentoDescricao);
+    addField("Numero de Serie", source.numeroSerie);
+
+    addSpacer();
+    addTitle("Servico");
+    addField("Problema Relatado", source.problemaRelatado);
+    addField("Diagnostico", source.diagnostico);
+    addField("Servico Executado", source.servicoExecutado);
+    addField("Informacoes Adicionais", source.informacoesAdicionais);
+
+    addSpacer();
+    addTitle("Despesas");
+    addField("Pedagio", formatCurrency(source.pedagio));
+    addField("Refeicao", formatCurrency(source.refeicao));
+    addField("Estadia", formatCurrency(source.estadia));
+    addField("Total", formatCurrency((source.pedagio || 0) + (source.refeicao || 0) + (source.estadia || 0)));
+
+    addSpacer();
+    addTitle("Checklist");
+    addField("Modelo", source.checklistModelo || "-");
+    addField("Status", (source.checklistStatus || "pendente").replace("_", " "));
+
+    if (source.pecas && source.pecas.length > 0) {
+      addSpacer();
+      addTitle("Pecas Utilizadas");
+      source.pecas.forEach((part, index) => {
+        addField(`Item ${index + 1}`, `${part.descricao} - Qtd: ${part.quantidade}`);
+      });
+    }
+
+    if (source.fotos && source.fotos.length > 0) {
+      addSpacer();
+      addField("Fotos anexadas", String(source.fotos.length));
+    }
+
+    addSpacer(12);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    ensureSpace(14);
+    doc.text(`Criado por ${source.criadoPor}${source.editadoPor ? ` | Editado por ${source.editadoPor}` : ""}`, marginX, y);
+
+    const filename = sanitizeFileName(`OS-${source.numero}.pdf`);
+    return { doc, filename };
+  };
+
+  const handleGeneratePdf = () => {
+    if (!report) return;
+    try {
+      const { doc, filename } = buildPdfDocument(report);
+      doc.save(filename);
+      toast.success("PDF gerado com sucesso.");
+    } catch {
+      toast.error("Nao foi possivel gerar o PDF.");
+    }
+  };
+
+  const handleGeneratePdfAndShareWhatsapp = async () => {
+    if (!report) return;
+
+    try {
+      const { doc, filename } = buildPdfDocument(report);
+      const pdfBlob = doc.output("blob");
+      const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+      const message = `Segue PDF da OS ${report.numero} - ${report.clienteNome}.`;
+
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        try {
+          await navigator.share({
+            title: `OS ${report.numero}`,
+            text: message,
+            files: [pdfFile],
+          });
+          toast.success("PDF anexado e compartilhado com sucesso.");
+          return;
+        } catch {
+          // Segue para fallback quando o navegador nao suporta anexo por share.
+        }
+      }
+
+      doc.save(filename);
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      toast.info("O navegador nao permitiu anexo automatico. PDF foi baixado e o WhatsApp foi aberto para voce anexar manualmente.");
+    } catch {
+      toast.error("Nao foi possivel gerar e compartilhar o PDF.");
+    }
+  };
+
+  const handleSharePdfNative = async () => {
+    if (!report) return;
+
+    if (typeof navigator === "undefined" || !("share" in navigator)) {
+      toast.error("Seu navegador nao suporta compartilhamento de arquivos.");
+      return;
+    }
+
+    try {
+      const { doc, filename } = buildPdfDocument(report);
+      const pdfBlob = doc.output("blob");
+      const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+
+      await navigator.share({
+        title: `OS ${report.numero}`,
+        text: `Segue PDF da OS ${report.numero} - ${report.clienteNome}.`,
+        files: [pdfFile],
+      });
+
+      toast.success("PDF compartilhado com sucesso.");
+    } catch {
+      toast.error("Nao foi possivel compartilhar o PDF.");
     }
   };
 
@@ -75,7 +245,7 @@ export default function ReportDetail() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+      <div className="report-print-root p-4 md:p-6 max-w-3xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
@@ -84,17 +254,28 @@ export default function ReportDetail() {
                 <h1 className="text-xl font-bold font-mono">{report.numero}</h1>
                 <StatusBadge status={report.status} />
               </div>
+              <p className="text-xs text-muted-foreground">Numero da OS: {report.numero}</p>
               <p className="text-sm text-muted-foreground">{report.dataAbertura} às {report.horaAbertura}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="report-print-hidden flex gap-2">
             {canEdit && (
               <Button size="sm" onClick={() => navigate(`/relatorios/${id}/editar`)}>
                 <Edit className="h-4 w-4 mr-1" />
                 {report.status === 'finalizado' ? 'Editar e reenviar' : 'Editar'}
               </Button>
             )}
-            <Button size="sm" variant="outline"><Printer className="h-4 w-4 mr-1" />PDF</Button>
+            <Button
+              size="sm"
+              onClick={handleGeneratePdfAndShareWhatsapp}
+              className="bg-[#25D366] text-white hover:bg-[#1ebe5d]"
+            >
+              <MessageCircle className="h-4 w-4 mr-1" />PDF + WhatsApp
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleSharePdfNative}>
+              <Share2 className="h-4 w-4 mr-1" />Compartilhar
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleGeneratePdf}><Printer className="h-4 w-4 mr-1" />PDF</Button>
           </div>
         </div>
 
@@ -102,16 +283,16 @@ export default function ReportDetail() {
           <Card>
             <CardHeader><CardTitle className="text-base">Informações Gerais</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Tipo</span><span className="capitalize font-medium">{report.tipoManutencao}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Técnico</span><span className="font-medium">{report.tecnicoNome}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Cliente</span><span className="font-medium">{report.clienteNome}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Tipo</span><span className="capitalize font-medium">{report.tipoManutencao}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Técnico</span><span className="font-medium">{report.tecnicoNome}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Cliente</span><span className="font-medium">{report.clienteNome}</span></div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle className="text-base">Equipamento</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Descrição</span><span className="font-medium">{report.equipamentoDescricao}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">N° Série</span><span className="font-mono">{report.numeroSerie}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Descrição</span><span className="font-medium">{report.equipamentoDescricao}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">N° Série</span><span className="font-mono">{report.numeroSerie}</span></div>
             </CardContent>
           </Card>
         </div>
@@ -172,9 +353,9 @@ export default function ReportDetail() {
           <CardHeader><CardTitle className="text-base">Deslocamento e Despesas</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Veículo</span><span className="font-medium">{report.veiculoDescricao} {report.placa}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-medium">{report.deslocamentoIda || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Retorno</span><span className="font-medium">{report.deslocamentoVolta || '—'}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Veículo</span><span className="font-medium">{report.veiculoDescricao} {report.placa}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Saída</span><span className="font-medium">{report.deslocamentoIda || '—'}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Retorno</span><span className="font-medium">{report.deslocamentoVolta || '—'}</span></div>
             </div>
             <Separator />
             <div className="grid grid-cols-3 gap-2">
@@ -189,8 +370,8 @@ export default function ReportDetail() {
           <CardHeader><CardTitle className="text-base">Checklist</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Modelo</span><span className="font-medium">{(report.checklistModelo && checklistLabelMap[report.checklistModelo]) || '—'}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{(report.checklistStatus || 'pendente').replace('_', ' ')}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Modelo</span><span className="font-medium">{(report.checklistModelo && checklistLabelMap[report.checklistModelo]) || '—'}</span></div>
+              <div className="report-field-row flex justify-between"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{(report.checklistStatus || 'pendente').replace('_', ' ')}</span></div>
             </div>
 
             {report.checklistRespostas && report.checklistRespostas.length > 0 && (
