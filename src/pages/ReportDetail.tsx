@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Camera, Edit, MessageCircle, Printer, RotateCcw, Share2, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Camera, Edit, Printer, RotateCcw, Share2, ZoomIn, ZoomOut } from "lucide-react";
 import { getReportById, hasPermission } from "@/lib/api-service";
 import { Report } from "@/lib/types";
 import { Separator } from "@/components/ui/separator";
@@ -152,40 +152,6 @@ export default function ReportDetail() {
     }
   };
 
-  const handleGeneratePdfAndShareWhatsapp = async () => {
-    if (!report) return;
-
-    try {
-      const { doc, filename } = buildPdfDocument(report);
-      const pdfBlob = doc.output("blob");
-      const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
-      const message = `Segue PDF da OS ${report.numero} - ${report.clienteNome}.`;
-
-      if (typeof navigator !== "undefined" && "share" in navigator) {
-        try {
-          await navigator.share({
-            title: `OS ${report.numero}`,
-            text: message,
-            files: [pdfFile],
-          });
-          toast.success("PDF anexado e compartilhado com sucesso.");
-          return;
-        } catch {
-          // Segue para fallback quando o navegador nao suporta anexo por share.
-        }
-      }
-
-      doc.save(filename);
-      window.open(
-        `https://wa.me/?text=${encodeURIComponent(message)}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
-      toast.info("O navegador nao permitiu anexo automatico. PDF foi baixado e o WhatsApp foi aberto para voce anexar manualmente.");
-    } catch {
-      toast.error("Nao foi possivel gerar e compartilhar o PDF.");
-    }
-  };
 
   const handleSharePdfNative = async () => {
     if (!report) return;
@@ -246,7 +212,7 @@ export default function ReportDetail() {
   return (
     <AppLayout>
       <div className="report-print-root p-4 md:p-6 max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4" /></Button>
             <div>
@@ -258,24 +224,17 @@ export default function ReportDetail() {
               <p className="text-sm text-muted-foreground">{report.dataAbertura} às {report.horaAbertura}</p>
             </div>
           </div>
-          <div className="report-print-hidden flex gap-2">
+          <div className="report-print-hidden flex flex-col md:flex-row gap-2 w-full md:w-auto">
             {canEdit && (
-              <Button size="sm" onClick={() => navigate(`/relatorios/${id}/editar`)}>
+              <Button size="sm" className="w-full md:w-auto" onClick={() => navigate(`/relatorios/${id}/editar`)}>
                 <Edit className="h-4 w-4 mr-1" />
                 {report.status === 'finalizado' ? 'Editar e reenviar' : 'Editar'}
               </Button>
             )}
-            <Button
-              size="sm"
-              onClick={handleGeneratePdfAndShareWhatsapp}
-              className="bg-[#25D366] text-white hover:bg-[#1ebe5d]"
-            >
-              <MessageCircle className="h-4 w-4 mr-1" />PDF + WhatsApp
-            </Button>
-            <Button size="sm" variant="outline" onClick={handleSharePdfNative}>
+            <Button size="sm" variant="outline" className="w-full md:w-auto" onClick={handleSharePdfNative}>
               <Share2 className="h-4 w-4 mr-1" />Compartilhar
             </Button>
-            <Button size="sm" variant="outline" onClick={handleGeneratePdf}><Printer className="h-4 w-4 mr-1" />PDF</Button>
+            <Button size="sm" variant="outline" className="w-full md:w-auto" onClick={handleGeneratePdf}><Printer className="h-4 w-4 mr-1" />PDF</Button>
           </div>
         </div>
 
