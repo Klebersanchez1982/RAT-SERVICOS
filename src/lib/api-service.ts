@@ -369,6 +369,52 @@ function normalizePartKit(input: Partial<PartKit>, fallbackId: string): PartKit 
   };
 }
 
+function normalizeKitStockKey(value?: string) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getReportKitPartKey(part: Pick<ReportPart, 'descricao' | 'observacao'>) {
+  return `${normalizeKitStockKey(part.descricao)}|${normalizeKitStockKey(part.observacao)}`;
+}
+
+function clonePartKits(kits: PartKit[]): PartKit[] {
+  return kits.map(kit => ({
+    ...kit,
+    pecas: kit.pecas.map(part => ({ ...part })),
+  }));
+}
+
+function applyKitStockChange(kits: PartKit[], parts: ReportPart[], direction: 1 | -1) {
+  for (const part of parts) {
+    if (part.origem !== 'kit' || !part.kitId) {
+      continue;
+    }
+
+    const quantity = Number(part.quantidade || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      continue;
+    }
+
+    const kit = kits.find(item => item.id === part.kitId);
+    if (!kit) {
+      continue;
+    }
+
+    const matchKey = getReportKitPartKey(part);
+    const kitPart = kit.pecas.find(item => getReportKitPartKey(item) === matchKey);
+    if (!kitPart) {
+      throw new Error(`Peça ${part.descricao} não encontrada no kit ${kit.nome}.`);
+    }
+
+    const nextQuantity = kitPart.quantidade + direction * quantity;
+    if (nextQuantity < 0) {
+      throw new Error(`Estoque insuficiente no kit ${kit.nome} para ${part.descricao}.`);
+    }
+
+    kitPart.quantidade = nextQuantity;
+  }
+}
+
 function normalizeReportPhoto(input: RemoteReportPhotoInput, fallbackId: string, reportId: string): ReportPhoto {
   return {
     id: String(input.id ?? fallbackId),
@@ -825,13 +871,26 @@ export async function saveReport(report: Partial<Report>): Promise<Report> {
   await delay(500);
   const activeUser = getCurrentUser();
   const now = new Date();
+
+  const kitsSnapshot = clonePartKits(getStoredPartKits());
+  const nextParts = Array.isArray(report.pecas) ? report.pecas : [];
+
   if (report.id) {
     const index = mockReports.findIndex(r => r.id === report.id);
     if (index >= 0) {
+      const previousParts = Array.isArray(mockReports[index].pecas) ? mockReports[index].pecas : [];
+      applyKitStockChange(kitsSnapshot, previousParts, 1);
+      applyKitStockChange(kitsSnapshot, nextParts, -1);
+
+      persistPartKits(kitsSnapshot);
       mockReports[index] = { ...mockReports[index], ...report, editadoPor: activeUser.nome };
       return mockReports[index];
     }
   }
+
+  applyKitStockChange(kitsSnapshot, nextParts, -1);
+  persistPartKits(kitsSnapshot);
+
   const newReport: Report = {
     id: String(mockReports.length + 1),
     numero: `RAT-${now.getFullYear()}-${String(mockReports.length + 1).padStart(4, '0')}`,

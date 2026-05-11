@@ -92,8 +92,8 @@ const INSTRUCAO_GEOMETRICA_META: InstrucaoGeometricaMeta[] = [
   {
     item: "ITEM 1.9",
     especificado: "A e B - Max 0,020 / 300 mm",
-    campoA: "A - Plano XZ encontrado (mm)",
-    campoB: "B - Plano YZ encontrado (mm)",
+    campoA: "A",
+    campoB: "B",
   },
 ];
 
@@ -161,6 +161,19 @@ function formatDateToDisplay(value: string): string {
 
 function isTemplateKey(value: string | undefined): value is ChecklistTemplateKey {
   return Boolean(value && value in checklistTemplateDefinitions);
+}
+
+function getInstrucaoGeometricaDataAi(meta?: InstrucaoGeometricaMeta, suffix?: string) {
+  const itemCode = meta?.item?.replace(/^ITEM\s+/i, "")?.replace(/\./g, "_")?.trim();
+  if (!itemCode) {
+    return suffix ? `INSPECAO_GEOMETRICA_?_${suffix}` : "INSPECAO_GEOMETRICA_?";
+  }
+
+  if (!suffix) {
+    return `INSPECAO_GEOMETRICA_${itemCode}`;
+  }
+
+  return `INSPECAO_GEOMETRICA_${itemCode}_${suffix}`;
 }
 
 function getInstrucaoCabecalho(
@@ -882,8 +895,8 @@ export default function ChecklistFillPage() {
                           );
                         })}
                       </tbody>
-                    </table>
-                  </div>
+                        </table>
+                          </div>
                 </div>
               ))
             ) : templateKey === "inspecao_geometria" ? (
@@ -972,7 +985,12 @@ export default function ChecklistFillPage() {
                               <div className="grid grid-cols-1 sm:grid-cols-12">
                                 <div className="sm:col-span-6 border-b sm:border-r p-2">
                                   <p className="font-semibold">Titulo</p>
-                                  <p className="mt-1 text-[11px] sm:text-xs font-medium">{cabecalho.tituloDocumento || "-"}</p>
+                                  <p
+                                    className="mt-1 text-[11px] sm:text-xs font-medium"
+                                    data-ai="INSPECAO_GEOMETRICA_TITULO"
+                                  >
+                                    {cabecalho.tituloDocumento || "-"}
+                                  </p>
                                 </div>
                                 <div className="sm:col-span-6 border-b p-2">
                                   <p className="font-semibold">Data</p>
@@ -988,6 +1006,7 @@ export default function ChecklistFillPage() {
                                           "w-full justify-start text-left font-normal mt-1 px-2",
                                           !cabecalho.data && "text-muted-foreground",
                                         )}
+                                        data-ai="INSPECAO_GEOMETRICA_DATA"
                                       >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {formatDateToDisplay(cabecalho.data)}
@@ -1038,6 +1057,7 @@ export default function ChecklistFillPage() {
                                     value={cabecalho.descricao}
                                     placeholder="Insira a descrição"
                                     onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "descricao", event.target.value)}
+                                    data-ai="INSPECAO_GEOMETRICA_DESCRICAO"
                                   />
                                 </div>
                                 <div className="sm:col-span-7 border-b p-2">
@@ -1047,6 +1067,7 @@ export default function ChecklistFillPage() {
                                     className="mt-1 min-h-14 text-xs resize-y"
                                     value={cabecalho.elaborado}
                                     onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "elaborado", event.target.value)}
+                                    data-ai="INSPECAO_GEOMETRICA_ELABORADO"
                                   />
                                 </div>
                               </div>
@@ -1067,11 +1088,12 @@ export default function ChecklistFillPage() {
                                   placeholder="Insira a nota aqui"
                                   value={cabecalho.nota}
                                   onChange={(event) => updateInstrucaoCabecalho(answer.itemId, "nota", event.target.value)}
+                                  data-ai="INSPECAO_GEOMETRICA_NOTA"
                                 />
                               </div>
                             ) : null}
                             <div className="text-center space-y-1">
-                              <p className="text-sm font-bold uppercase tracking-wide">ITEM 1 - TESTES GEOMÉTRICOS</p>
+                              <p className="text-sm font-bold uppercase tracking-wide">TESTES GEOMÉTRICOS</p>
                               <p className="text-sm font-semibold uppercase">{meta?.item}</p>
                               <div className="flex items-center justify-center gap-2">
                                 <span className="font-semibold uppercase">DESCRIÇÃO:</span>
@@ -1122,34 +1144,27 @@ export default function ChecklistFillPage() {
                                       A
                                     </td>
                                     <td className="w-[12%] border p-2 text-center font-semibold uppercase">TRANV.</td>
-                                    <td className="border p-2">
-                                      <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="w-full"
-                                        value={answer.valorEncontrado || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                                      />
-                                    </td>
+                                        <td className="border p-2">
+                                          <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                        </td>
                                   </tr>
                                   <tr>
                                     <td className="border p-2 text-center font-semibold uppercase">LONG.</td>
                                     <td className="border p-2">
                                       <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="w-full"
-                                        value={answer.valorAtual || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="w-full pr-10"
+                                          value={answer.valorAtual || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "B")}
+                                        />
+                                      </div>
                                     </td>
                                   </tr>
                                   <tr>
@@ -1159,32 +1174,96 @@ export default function ChecklistFillPage() {
                                     <td className="border p-2 text-center font-semibold uppercase">TRANV.</td>
                                     <td className="border p-2">
                                       <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="w-full"
-                                        value={answer.valorEncontrado2 || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="w-full pr-10"
+                                          value={answer.valorEncontrado2 || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "C")}
+                                        />
+                                      </div>
                                     </td>
                                   </tr>
                                   <tr>
                                     <td className="border p-2 text-center font-semibold uppercase">LONG.</td>
                                     <td className="border p-2">
                                       <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="w-full"
-                                        value={answer.valorAtual2 || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="w-full pr-10"
+                                          value={answer.valorAtual2 || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "D")}
+                                        />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                              <div className="p-3 text-center text-[12px] font-bold uppercase">MEIOS DE CONTROLE: NÍVEL LINEAR</div>
+                            </div>
+                          ) : meta?.item === "ITEM 1.4" ? (
+                            <div className="rounded-md border overflow-hidden bg-white">
+                              <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                <tbody>
+                                  <tr>
+                                    <td rowSpan={2} className="w-[40%] border p-3 text-center align-middle">
+                                      <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                      <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                        <p>A e B) MÁXIMO 0,012 / 300mm</p>
+                                      </div>
+                                    </td>
+                                    <td className="w-[12%] border p-2 text-center font-semibold text-sm">
+                                      A
+                                    </td>
+                                    <td className="w-[12%] border p-2 text-center font-semibold uppercase">TRANV.</td>
+                                    <td className="border p-2">
+                                      <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="w-full pr-10"
+                                          value={answer.valorEncontrado || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                        />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td className="border p-2 text-center font-semibold text-sm">
+                                      B
+                                    </td>
+                                    <td className="border p-2 text-center font-semibold uppercase">ENCONTRADO (mm)</td>
+                                    <td className="border p-2">
+                                      <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="w-full pr-10"
+                                          value={answer.valorAtual || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "B")}
+                                        />
+                                      </div>
                                     </td>
                                   </tr>
                                 </tbody>
@@ -1204,16 +1283,19 @@ export default function ChecklistFillPage() {
                                 <div className="flex items-center justify-center font-semibold">A</div>
                                 <div>
                                   <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
-                                  <Input
-                                    ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                    type="number"
-                                    inputMode="decimal"
-                                    step="any"
-                                    placeholder="0"
-                                    className="mt-1"
-                                    value={answer.valorEncontrado || ""}
-                                    onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                                  />
+                                  <div className="relative">
+                                    <Input
+                                      ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="any"
+                                      placeholder="0"
+                                      className="mt-1 pr-10"
+                                      value={answer.valorEncontrado || ""}
+                                      onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                      data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                    />
+                                  </div>
                                 </div>
                                 <div>
                                   <p className="text-[10px] uppercase font-medium">ENCONTRADO (mm)</p>
@@ -1267,20 +1349,58 @@ export default function ChecklistFillPage() {
                                     <p className="text-sm font-medium">Especificado: 0 A 0,005.</p>
                                     <div>
                                       <Label className="block text-center">Encontrado (mm)</Label>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="mt-1 text-center"
-                                        value={answer.valorEncontrado || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="mt-1 text-center pr-10"
+                                          value={answer.valorEncontrado || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 </>
-                              ) : meta?.item === "ITEM 1.3" ? null : (
+                              ) : meta?.item === "ITEM 1.3" || meta?.item === "ITEM 1.4" || meta?.item === "ITEM 1.6" || meta?.item === "ITEM 1.7" || meta?.item === "ITEM 1.8" || meta?.item === "ITEM 1.9" ? null : meta?.item === "ITEM 1.5" ? (
+                                <div className="rounded-md border overflow-hidden bg-white">
+                                  <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                    <tbody>
+                                      <tr>
+                                        <td rowSpan={1} className="w-[40%] border p-3 text-center align-middle">
+                                          <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                          <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                            <p>A e B) MÁXIMO 0,020 / 500mm</p>
+                                          </div>
+                                        </td>
+                                        <td className="w-[12%] border p-2 text-center font-semibold text-sm">A</td>
+                                        <td className="border p-2">
+                                          <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                          <div className="relative">
+                                            <Input
+                                              ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                              type="number"
+                                              inputMode="decimal"
+                                              step="any"
+                                              placeholder="0"
+                                              className="w-full pr-10"
+                                              value={answer.valorEncontrado || ""}
+                                              onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                              data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                            />
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                  <div className="p-3 text-center">
+                                    <p className="text-[12px] font-bold uppercase">MEIOS DE CONTROLE: RELÓGIO MILESIMAL + HASTE</p>
+                                  </div>
+                                </div>
+                              ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                                   <div>
                                     <Label>{meta?.campoA || "Encontrado (mm)"}</Label>
@@ -1299,48 +1419,57 @@ export default function ChecklistFillPage() {
                                   {meta?.campoB ? (
                                     <div>
                                       <Label>{meta.campoB}</Label>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="mt-1"
-                                        value={answer.valorAtual || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="mt-1 pr-10"
+                                          value={answer.valorAtual || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "B")}
+                                        />
+                                      </div>
                                     </div>
                                   ) : null}
 
                                   {meta?.campoC ? (
                                     <div>
                                       <Label>{meta.campoC}</Label>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="mt-1"
-                                        value={answer.valorEncontrado2 || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado2`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="mt-1 pr-10"
+                                          value={answer.valorEncontrado2 || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado2", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "C")}
+                                        />
+                                      </div>
                                     </div>
                                   ) : null}
 
                                   {meta?.campoD ? (
                                     <div>
                                       <Label>{meta.campoD}</Label>
-                                      <Input
-                                        ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
-                                        type="number"
-                                        inputMode="decimal"
-                                        step="any"
-                                        placeholder="0"
-                                        className="mt-1"
-                                        value={answer.valorAtual2 || ""}
-                                        onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
-                                      />
+                                      <div className="relative">
+                                        <Input
+                                          ref={registerFieldRef(`item:${answer.itemId}:valorAtual2`)}
+                                          type="number"
+                                          inputMode="decimal"
+                                          step="any"
+                                          placeholder="0"
+                                          className="mt-1 pr-10"
+                                          value={answer.valorAtual2 || ""}
+                                          onChange={(event) => updateAnswer(answer.itemId, "valorAtual2", event.target.value)}
+                                          data-ai={getInstrucaoGeometricaDataAi(meta, "D")}
+                                        />
+                                      </div>
                                     </div>
                                   ) : null}
                                 </div>
@@ -1361,32 +1490,38 @@ export default function ChecklistFillPage() {
                                         <td className="border-r p-2 text-sm">A) MÁXIMO 0,008mm</td>
                                         <td className="border-r p-2 text-center">A</td>
                                         <td className="border p-2">
-                                          <Input
-                                            ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="any"
-                                            placeholder="0"
-                                            className="w-full"
-                                            value={answer.valorEncontrado || ""}
-                                            onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
-                                          />
+                                          <div className="relative">
+                                            <Input
+                                              ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                              type="number"
+                                              inputMode="decimal"
+                                              step="any"
+                                              placeholder="0"
+                                              className="w-full pr-10"
+                                              value={answer.valorEncontrado || ""}
+                                              onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                              data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                            />
+                                          </div>
                                         </td>
                                       </tr>
                                       <tr>
                                         <td className="border-r p-2 text-sm">B) MÁXIMO 0,015mm</td>
                                         <td className="border-r p-2 text-center">B</td>
                                         <td className="border p-2">
-                                          <Input
-                                            ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
-                                            type="number"
-                                            inputMode="decimal"
-                                            step="any"
-                                            placeholder="0"
-                                            className="w-full"
-                                            value={answer.valorAtual || ""}
-                                            onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
-                                          />
+                                          <div className="relative">
+                                            <Input
+                                              ref={registerFieldRef(`item:${answer.itemId}:valorAtual`)}
+                                              type="number"
+                                              inputMode="decimal"
+                                              step="any"
+                                              placeholder="0"
+                                              className="w-full pr-10"
+                                              value={answer.valorAtual || ""}
+                                              onChange={(event) => updateAnswer(answer.itemId, "valorAtual", event.target.value)}
+                                              data-ai={getInstrucaoGeometricaDataAi(meta, "B")}
+                                            />
+                                          </div>
                                         </td>
                                       </tr>
                                     </tbody>
@@ -1396,7 +1531,147 @@ export default function ChecklistFillPage() {
 
                               {meta?.item === "ITEM 1.2" ? (
                                 <div className="border rounded-md p-4 bg-white text-sm mt-2">
-                                  <p className="font-medium text-center">Meios de Controle: Relógio Milesimal Haste</p>
+                                  <p className="font-medium text-center uppercase">MEIOS DE CONTROLE: RELÓGIO MILESIMAL + HASTE</p>
+                                </div>
+                              ) : null}
+                                {meta?.item === "ITEM 1.6" ? (
+                                  <div className="rounded-md border overflow-hidden bg-white mt-2">
+                                    <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                      <tbody>
+                                        <tr>
+                                          <td className="w-[40%] border p-3 text-center align-middle">
+                                            <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                            <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                              <p>MÁXIMO 0,015 / TOTAL</p>
+                                            </div>
+                                          </td>
+                                          <td className="border p-2">
+                                            <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                            <div className="relative">
+                                              <Input
+                                                ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                                type="number"
+                                                inputMode="decimal"
+                                                step="any"
+                                                placeholder="0"
+                                                className="w-full pr-10"
+                                                value={answer.valorEncontrado || ""}
+                                                onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                                data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                              />
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : null}
+                              {meta?.item === "ITEM 1.7" ? (
+                                <div className="rounded-md border overflow-hidden bg-white mt-2">
+                                  <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                    <tbody>
+                                      <tr>
+                                        <td className="w-[40%] border p-3 text-center align-middle">
+                                          <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                          <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                            <p>MÁXIMO 0,020 / TOTAL</p>
+                                          </div>
+                                        </td>
+                                        <td className="border p-2">
+                                          <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                          <div className="relative">
+                                            <Input
+                                              ref={registerFieldRef(`item:${answer.itemId}:valorEncontrado`)}
+                                              type="number"
+                                              inputMode="decimal"
+                                              step="any"
+                                              placeholder="0"
+                                              className="w-full pr-10"
+                                              value={answer.valorEncontrado || ""}
+                                              onChange={(event) => updateAnswer(answer.itemId, "valorEncontrado", event.target.value)}
+                                              data-ai={getInstrucaoGeometricaDataAi(meta, "A")}
+                                            />
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                  <div className="p-3 text-center">
+                                    <p className="text-[12px] font-bold uppercase">MEIOS DE CONTROLE: RELÓGIO MILESIMAL + HASTE</p>
+                                  </div>
+                                </div>
+                              ) : null}
+                              {meta?.item === "ITEM 1.8" ? (
+                                <div className="rounded-md border overflow-hidden bg-white mt-2">
+                                  <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                    <tbody>
+                                      <tr>
+                                        <td className="w-[40%] border p-3 text-center align-middle">
+                                          <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                          <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                            <p>MÁXIMO 0,015 / 300mm</p>
+                                          </div>
+                                        </td>
+                                        <td className="border p-2">
+                                          <p className="mb-2 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                          <Input
+                                            type="text"
+                                            value={answer.fieldValues?.["ITEM 1.8.A"] || ""}
+                                            onChange={(e) => updateAnswer(answer.itemId, "fieldValues", { ...answer.fieldValues, "ITEM 1.8.A": e.target.value })}
+                                            data-ai={getInstrucaoGeometricaDataAi("ITEM 1.8", "A")}
+                                            className="border p-2 text-xs rounded w-full"
+                                          />
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : null}
+                              {meta?.item === "ITEM 1.9" ? (
+                                <div className="rounded-md border overflow-hidden bg-white mt-2">
+                                  <table className="w-full border-collapse text-[11px] sm:text-xs">
+                                    <tbody>
+                                      <tr>
+                                        <td rowSpan={2} className="w-[40%] border p-3 text-center align-middle">
+                                          <p className="font-semibold uppercase">ESPECIFICADO:</p>
+                                          <div className="mt-3 font-semibold uppercase leading-tight text-[10px]">
+                                            <p>A e B) MÁXIMO 0,020 / 300mm</p>
+                                          </div>
+                                        </td>
+                                        <td className="w-[12%] border p-2 text-center font-semibold text-sm">A</td>
+                                        <td className="border p-2">
+                                          <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                          <div className="relative">
+                                            <Input
+                                              type="text"
+                                              value={answer.fieldValues?.["ITEM 1.9.A"] || ""}
+                                              onChange={(e) => updateAnswer(answer.itemId, "fieldValues", { ...answer.fieldValues, "ITEM 1.9.A": e.target.value })}
+                                              data-ai={getInstrucaoGeometricaDataAi("ITEM 1.9", "A")}
+                                              className="border p-2 text-xs rounded w-full"
+                                            />
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      <tr>
+                                        <td className="w-[12%] border p-2 text-center font-semibold text-sm">B</td>
+                                        <td className="border p-2">
+                                          <p className="mb-1 text-[10px] font-semibold uppercase">ENCONTRADO (mm)</p>
+                                          <div className="relative">
+                                            <Input
+                                              type="text"
+                                              value={answer.fieldValues?.["ITEM 1.9.B"] || ""}
+                                              onChange={(e) => updateAnswer(answer.itemId, "fieldValues", { ...answer.fieldValues, "ITEM 1.9.B": e.target.value })}
+                                              data-ai={getInstrucaoGeometricaDataAi("ITEM 1.9", "B")}
+                                              className="border p-2 text-xs rounded w-full"
+                                            />
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                  <div className="p-3 text-center">
+                                    <p className="text-[12px] font-bold uppercase">MEIOS DE CONTROLE: RELÓGIO MILESIMAL + HASTE</p>
+                                  </div>
                                 </div>
                               ) : null}
                             </>
@@ -1434,26 +1709,7 @@ export default function ChecklistFillPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Observacoes Gerais</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              ref={registerFieldRef("observacoesGerais")}
-              value={observacoesGerais}
-              onChange={(event) => setObservacoesGerais(event.target.value)}
-              onInput={(event) => {
-                const target = event.currentTarget;
-                target.style.height = "auto";
-                target.style.height = `${target.scrollHeight}px`;
-              }}
-              placeholder="Registre observacoes gerais do checklist..."
-              rows={1}
-              className="min-h-24 resize-none overflow-hidden"
-            />
-          </CardContent>
-        </Card>
+        
 
         {templateKey === "checklist_preventiva" && (
           <Card>

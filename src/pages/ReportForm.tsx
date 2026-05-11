@@ -21,8 +21,8 @@ import {
   saveReport,
   uploadReportPhoto,
 } from "@/lib/api-service";
-import { Client, Equipment, Vehicle, Report, MaintenanceType, ReportPart, PhotoCategory, ReportPhoto, PartKit, ChecklistTemplateKey, ChecklistStatus } from "@/lib/types";
-import { checklistTemplates, getChecklistProgress } from "@/lib/checklist-templates";
+import { Client, Equipment, Vehicle, Report, MaintenanceType, ReportPart, PhotoCategory, ReportPhoto, PartKit, ChecklistTemplateKey } from "@/lib/types";
+import { checklistTemplates } from "@/lib/checklist-templates";
 import { toast } from "sonner";
 
 const NEW_REPORT_DRAFT_STORAGE_KEY = 'rat-report-draft-new';
@@ -169,17 +169,6 @@ export default function ReportForm() {
     setForm(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const currentChecklistAnswers = useMemo(() => {
-    const templateKey = form.checklistModelo;
-    if (!templateKey) return [];
-    return (form.checklistRespostas || []).filter(answer => answer.itemId.startsWith(`${templateKey}:`));
-  }, [form.checklistModelo, form.checklistRespostas]);
-
-  const currentChecklistProgress = useMemo(() => {
-    if (!form.checklistModelo) return { completed: 0, total: 0 };
-    return getChecklistProgress(form.checklistModelo, currentChecklistAnswers);
-  }, [currentChecklistAnswers, form.checklistModelo]);
-
   const openChecklistScreen = (templateKey: ChecklistTemplateKey) => {
     const draft: Partial<Report> = {
       ...form,
@@ -234,6 +223,10 @@ export default function ReportForm() {
     if (!part) return;
 
     const quantidadeDebitada = Number.isFinite(quantidade) ? Math.max(1, Math.floor(quantidade)) : 1;
+    if (quantidadeDebitada > Number(part.quantidade || 0)) {
+      toast.error(`Estoque insuficiente no kit ${kit.nome} para ${part.descricao}.`);
+      return;
+    }
 
     const kitPart: ReportPart = {
       id: `${kit.id}-${Date.now()}-${partIndex}`,
@@ -358,8 +351,8 @@ export default function ReportForm() {
       }
 
       navigate('/relatorios');
-    } catch {
-      toast.error('Erro ao salvar.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar.');
     } finally {
       setUploadingPhotos(false);
       setSaving(false);
@@ -774,26 +767,7 @@ export default function ReportForm() {
                 <p className="text-xs text-muted-foreground">Ao clicar no modelo, abre a tela de preenchimento específico automaticamente.</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Status do checklist</Label>
-                  <Select value={form.checklistStatus || 'pendente'} onValueChange={(value) => update('checklistStatus', value as ChecklistStatus)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="em_preenchimento">Em preenchimento</SelectItem>
-                      <SelectItem value="concluido">Concluído</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Itens respondidos</Label>
-                  <Input
-                    readOnly
-                    value={`${currentChecklistProgress.completed}/${currentChecklistProgress.total}`}
-                  />
-                </div>
-              </div>
+              
             </CardContent>
           </Card>
         )}
