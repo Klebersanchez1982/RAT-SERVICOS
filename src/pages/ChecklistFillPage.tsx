@@ -32,7 +32,7 @@ import { toast } from "sonner";
 
 const NEW_REPORT_DRAFT_STORAGE_KEY = "rat-report-draft-new";
 const CHECKLIST_CORRETIVAS_MIN_ROWS = 1;
-const INSTRUCAO_GEOMETRICA_IMAGE_BASE_PATH = "/instrucao-geometrica";
+const INSTRUCAO_GEOMETRICA_IMAGE_BASE_PATH = `${import.meta.env.BASE_URL}instrucao-geometrica`;
 
 type InstrucaoGeometricaMeta = {
   item: string;
