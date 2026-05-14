@@ -80,20 +80,43 @@ npm run lint
 
 Se você quiser usar Supabase (Postgres gerenciado) como backend em vez dos mocks / Google Apps Script:
 
-1. Instale o cliente:
+### 1. Criar conta e projeto no Supabase
+- Acesse https://supabase.com
+- Clique em **Start your project**
+- Login com GitHub ou email
+- Crie um projeto novo (nome qualquer, ex: "RAT-SISTEMA")
+- Aguarde 2-3 minutos (ele cria automaticamente)
 
+### 2. Copiar credenciais
+- Após criar o projeto, vá em **Settings** → **API**
+- Copie:
+  - `Project URL` → cola em `VITE_SUPABASE_URL`
+  - `anon public` (key) → cola em `VITE_SUPABASE_ANON_KEY`
+
+### 3. Configurar ambiente
+- Copie `.env.example` para `.env.local`
+- Preencha as variáveis do Supabase no `.env.local`
+
+### 4. Criar tabelas no banco
+- No Supabase, vá em **SQL Editor** (lado esquerdo)
+- Clique em **New Query**
+- Copie todo o conteúdo de `sql/supabase-schema.sql`
+- Cole no editor
+- Clique **Run** (triângulo verde)
+- Pronto! As tabelas foram criadas
+
+### 5. Importar dados iniciais
+- Vá em **Table Editor** (lado esquerdo)
+- Clique na tabela `clients`
+- Clique em **Import** (botão no topo)
+- Selecione `data/clients_sample.csv`
+- Clique **Import**
+- Repita para `equipments` com `data/equipments_sample.csv`
+
+### 6. Testar
 ```bash
-npm install @supabase/supabase-js
+npm run dev
 ```
-
-2. Crie um arquivo `.env.local` na raiz do projeto e adicione:
-
-```bash
-VITE_SUPABASE_URL=https://xyz.supabase.co
-VITE_SUPABASE_ANON_KEY=pk_...your_key_here
-```
-
-3. Reinicie o `npm run dev`.
 
 O frontend tentará usar Supabase automaticamente quando as variáveis acima estiverem definidas. Se não estiverem, o sistema continuará usando os dados mock locais ou o Google Apps Script (se configurado).
 
