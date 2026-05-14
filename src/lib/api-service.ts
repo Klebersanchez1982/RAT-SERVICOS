@@ -17,6 +17,7 @@
 
 import { mockClients, mockEquipments, mockVehicles, mockReports, mockUsers, mockPartKits, currentUser } from './mock-data';
 import { Client, Equipment, Vehicle, Report, ReportPhoto, User, ReportStatus, PartKit, AccessControlConfig, AccessLevel, PermissionKey } from './types';
+import { supabase, hasSupabaseConfigured } from './supabase';
 
 // Simula delay de rede
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -440,6 +441,14 @@ function hasRemoteDataSource(): boolean {
   return getAppsScriptUrl().length > 0;
 }
 
+function hasSupabaseDataSource(): boolean {
+  try {
+    return typeof window !== 'undefined' && hasSupabaseConfigured();
+  } catch {
+    return false;
+  }
+}
+
 async function callAppsScript<T>(action: string, payload?: unknown): Promise<T> {
   const appsScriptUrl = getAppsScriptUrl();
 
@@ -590,7 +599,18 @@ export function logoutUser() {
 }
 
 export async function getClients(): Promise<Client[]> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('clients').select('*');
+      if (error) throw error;
+      if (!Array.isArray(data)) return [];
+      return data.map((client: any, index: number) => normalizeClient(client, String(index + 1)));
+    } catch {
+      // fallback to other remote or local
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const remoteClients = await callAppsScript<RemoteClientInput[]>('getClients');
       if (!Array.isArray(remoteClients)) return [];
@@ -606,7 +626,30 @@ export async function getClients(): Promise<Client[]> {
 }
 
 export async function saveClient(client: Partial<Client>): Promise<Client> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = {
+        razaoSocial: client.razaoSocial || client.nomeFantasia || '',
+        nomeFantasia: client.nomeFantasia || client.razaoSocial || '',
+        cnpj: client.cnpj || '',
+        endereco: client.endereco || '',
+        cidade: client.cidade || '',
+        estado: client.estado || '',
+        telefone: client.telefone || '',
+        email: client.email || '',
+        contato: client.contato || '',
+        ativo: client.ativo ?? true,
+      } as any;
+
+      const { data, error } = await supabase.from('clients').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeClient(data[0], String(Date.now()));
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const savedClient = await callAppsScript<RemoteClientInput>('saveClient', client);
       return normalizeClient(savedClient, String(Date.now()));
@@ -642,7 +685,17 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
 }
 
 export async function updateClient(clientId: string, updates: Partial<Client>): Promise<Client | undefined> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('clients').update(updates).eq('id', clientId).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeClient(data[0], clientId);
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const updatedClient = await callAppsScript<RemoteClientInput | null>('updateClient', { clientId, updates });
       if (!updatedClient) return undefined;
@@ -666,7 +719,21 @@ export async function setClientBlocked(clientId: string, blocked: boolean): Prom
 }
 
 export async function getEquipments(clienteId?: string): Promise<Equipment[]> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      let query = supabase.from('equipments').select('*');
+      if (clienteId) query = query.eq('clienteId', clienteId);
+      const { data, error } = await query;
+      if (error) throw error;
+      const normalized = Array.isArray(data) ? data.map((equipment: any, index: number) => normalizeEquipment(equipment, String(index + 1))) : [];
+      if (clienteId) return normalized.filter(e => e.clienteId === clienteId);
+      return normalized;
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const remoteEquipments = await callAppsScript<RemoteEquipmentInput[]>('getEquipments', { clienteId });
       if (!Array.isArray(remoteEquipments)) return [];
@@ -686,7 +753,29 @@ export async function getEquipments(clienteId?: string): Promise<Equipment[]> {
 }
 
 export async function saveEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = {
+        clienteId: equipment.clienteId || '',
+        clienteNome: equipment.clienteNome || '',
+        descricao: equipment.descricao || '',
+        marca: equipment.marca || '',
+        modelo: equipment.modelo || '',
+        numeroSerie: equipment.numeroSerie || '',
+        localizacao: equipment.localizacao || '',
+        qrCode: equipment.qrCode || `EQ-${String(Date.now())}`,
+        ativo: equipment.ativo ?? true,
+      } as any;
+
+      const { data, error } = await supabase.from('equipments').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeEquipment(data[0], String(Date.now()));
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const savedEquipment = await callAppsScript<RemoteEquipmentInput>('saveEquipment', equipment);
       return normalizeEquipment(savedEquipment, String(Date.now()));
@@ -723,7 +812,17 @@ export async function saveEquipment(equipment: Partial<Equipment>): Promise<Equi
 }
 
 export async function updateEquipment(equipmentId: string, updates: Partial<Equipment>): Promise<Equipment | undefined> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('equipments').update(updates).eq('id', equipmentId).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeEquipment(data[0], equipmentId);
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const updatedEquipment = await callAppsScript<RemoteEquipmentInput | null>('updateEquipment', { equipmentId, updates });
       if (!updatedEquipment) return undefined;
@@ -960,6 +1059,16 @@ export async function deleteReportPhoto(reportId: string, photoId: string, drive
 }
 
 export async function getUsers(): Promise<User[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      if (Array.isArray(data)) return data.map((user: any, index: number) => normalizeUser(user, String(index + 1)));
+    } catch {
+      // fallback
+    }
+  }
+
   if (hasRemoteDataSource()) {
     try {
       const remoteUsers = await callAppsScript<RemoteUserInput[]>('getUsers');
@@ -976,6 +1085,39 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function saveUser(user: Partial<User> & { password: string }): Promise<User> {
+  if (hasSupabaseDataSource()) {
+    try {
+      if (!user.password || user.password.length < 6) {
+        throw new Error('Senha inválida. A senha deve ter pelo menos 6 caracteres.');
+      }
+
+      const payload = {
+        nome: user.nome || '',
+        email: (user.email || '').trim().toLowerCase(),
+        perfil: normalizeLegacyUserRole(user.perfil),
+        ativo: user.ativo ?? true,
+        senha: user.password,
+      } as any;
+
+      const { data, error } = await supabase.from('users').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) {
+        const normalizedUser = normalizeUser(data[0], String(Date.now()));
+        const existingIndex = mockUsers.findIndex(existingUser => existingUser.id === normalizedUser.id);
+        if (existingIndex >= 0) {
+          mockUsers[existingIndex] = normalizedUser;
+        } else {
+          mockUsers.unshift(normalizedUser);
+        }
+        if (user.password) mockUserPasswords[normalizedUser.id] = user.password;
+        persistUsersAuthData();
+        return normalizedUser;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   if (hasRemoteDataSource()) {
     try {
       const createdUser = await callAppsScript<RemoteUserInput>('saveUser', user);
@@ -1038,6 +1180,26 @@ export async function updateUser(
   updates: Partial<User>,
   newPassword?: string,
 ): Promise<User | undefined> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = { ...updates } as any;
+      if (typeof payload.email === 'string') payload.email = payload.email.trim().toLowerCase();
+
+      const { data, error } = await supabase.from('users').update(payload).eq('id', userId).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) {
+        const normalizedUser = normalizeUser(data[0], userId);
+        const existingIndex = mockUsers.findIndex(user => user.id === normalizedUser.id);
+        if (existingIndex >= 0) mockUsers[existingIndex] = normalizedUser;
+        if (newPassword) mockUserPasswords[userId] = newPassword;
+        persistUsersAuthData();
+        return normalizedUser;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   if (hasRemoteDataSource()) {
     try {
       const updatedUser = await callAppsScript<RemoteUserInput | null>('updateUser', { userId, updates, newPassword });

@@ -76,6 +76,28 @@ npm run test
 npm run lint
 ```
 
+## Integrar Supabase (opcional)
+
+Se você quiser usar Supabase (Postgres gerenciado) como backend em vez dos mocks / Google Apps Script:
+
+1. Instale o cliente:
+
+```bash
+npm install @supabase/supabase-js
+```
+
+2. Crie um arquivo `.env.local` na raiz do projeto e adicione:
+
+```bash
+VITE_SUPABASE_URL=https://xyz.supabase.co
+VITE_SUPABASE_ANON_KEY=pk_...your_key_here
+```
+
+3. Reinicie o `npm run dev`.
+
+O frontend tentará usar Supabase automaticamente quando as variáveis acima estiverem definidas. Se não estiverem, o sistema continuará usando os dados mock locais ou o Google Apps Script (se configurado).
+
+
 ## Credenciais padrão (ambiente local)
 
 - `admin@empresa.com` / `123456`
