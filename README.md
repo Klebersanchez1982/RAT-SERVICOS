@@ -45,16 +45,7 @@ A aplicação suporta dois modos de operação:
 ### 1. Dados Mockados (padrão)
 Sem configuração adicional, o projeto roda com dados em memória.
 
-### 2. Google Sheets Backend (multiempresa)
-Para integrar com Google Sheets como backend:
 
-1. Consulte [GUIA_GOOGLE_SHEETS_BACKEND.md](GUIA_GOOGLE_SHEETS_BACKEND.md) para estrutura e código do Apps Script.
-2. Crie um `.env.local` na raiz:
-   ```bash
-   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/SEU_ID/exec
-   VITE_CNPJ=12.345.678/0001-90
-   ```
-3. Reinicie `npm run dev`.
 
 **Fallback automático**: Se a API remota falhar, o sistema volta para dados mockados sem interrupção.
 
@@ -68,12 +59,3 @@ Este projeto pode ser publicado como frontend estático no GitHub Pages.
 4. Rotas internas da aplicação usam fallback via `public/404.html` para funcionar em navegação direta.
 
 Observação: o GitHub Pages hospeda apenas o frontend. O salvamento real em planilha continua dependendo do Apps Script publicado.
-
-## Problemas comuns
-
-- Erro `'vite' não é reconhecido`:
-	Execute `npm install` antes de `npm run dev`.
-- Porta `8080` em uso:
-	Pare o processo que está usando a porta ou ajuste `server.port` em `vite.config.ts`.
-=======
->>>>>>> ce590794016532b6bb6177935ba9a7364c8a71ef
