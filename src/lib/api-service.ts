@@ -24,9 +24,14 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const USERS_STORAGE_KEY = 'rat-users';
 const USER_PASSWORDS_STORAGE_KEY = 'rat-user-passwords';
 const AUTH_STORAGE_KEY = 'rat-auth-user';
+const AUTH_USER_STORAGE_KEY = 'rat-auth-user-data';
 const RUNTIME_SETTINGS_STORAGE_KEY = 'rat-runtime-settings';
 const PART_KITS_STORAGE_KEY = 'rat-part-kits';
 const ACCESS_CONTROL_STORAGE_KEY = 'rat-access-control';
+
+function normalizeEmail(email?: string) {
+  return String(email || '').trim().toLowerCase();
+}
 
 type RuntimeSettings = {
   appsScriptUrl: string;
@@ -42,13 +47,40 @@ type AppsScriptResponse<T> = {
   error?: string;
 };
 
-type RemoteClientInput = Partial<Client> & { id?: string | number; ativo?: boolean | string | number };
-type RemoteEquipmentInput = Partial<Equipment> & { id?: string | number; ativo?: boolean | string | number };
+type RemoteClientInput = Partial<Client> & {
+  id?: string | number;
+  ativo?: boolean | string | number;
+  razao_social?: string;
+  nome_fantasia?: string;
+};
+type RemoteEquipmentInput = Partial<Equipment> & {
+  id?: string | number;
+  ativo?: boolean | string | number;
+  cliente_id?: string | number;
+  cliente_nome?: string;
+  numero_serie?: string;
+  qr_code?: string;
+};
 type RemoteUserInput = Partial<User> & {
   id?: string | number;
   senha_hash?: string;
   senhaHash?: string;
   ativo?: boolean | string | number;
+};
+type RemoteReportInput = Partial<Report> & {
+  id?: string | number;
+  tipo_manutencao?: string;
+  data_abertura?: string;
+  hora_abertura?: string;
+  numero_serie?: string;
+  checklist_respostas?: unknown;
+  checklist_corretivas?: unknown;
+  checklist_observacoes_gerais?: string;
+  checklist_link_externo?: string;
+  checklist_arquivo_nome?: string;
+  checklist_arquivo_url?: string;
+  checklist_capa_nome?: string;
+  checklist_capa_url?: string;
 };
 type RemoteReportPhotoInput = Partial<ReportPhoto> & {
   id?: string | number;
@@ -291,38 +323,178 @@ function parseBoolean(value: unknown, fallback = true): boolean {
   return fallback;
 }
 
+function isPasswordHash(value: unknown): boolean {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+}
+
+async function hashPassword(password: string): Promise<string> {
+  if (typeof password !== 'string') return '';
+  if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+    const encoded = new TextEncoder().encode(password);
+    const digest = await crypto.subtle.digest('SHA-256', encoded);
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return password;
+}
+
+async function verifyPassword(storedPassword: string | undefined, candidate: string): Promise<boolean> {
+  if (!storedPassword) return false;
+  if (isPasswordHash(storedPassword)) {
+    return (await hashPassword(candidate)) === storedPassword;
+  }
+  return storedPassword === candidate;
+}
+
+function getStoredAuthUser(): User | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const raw = localStorage.getItem(AUTH_USER_STORAGE_KEY) || sessionStorage.getItem(AUTH_USER_STORAGE_KEY);
+  if (!raw) return undefined;
+
+  try {
+    const parsed = JSON.parse(raw) as User;
+    if (parsed && typeof parsed === 'object' && parsed.id) {
+      return normalizeUser(parsed, String(parsed.id));
+    }
+  } catch {
+    localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  }
+
+  return undefined;
+}
+
+function persistAuthenticatedUser(user: User, rememberSession: boolean) {
+  if (typeof window === 'undefined') return;
+  const destination = rememberSession ? localStorage : sessionStorage;
+  destination.setItem(AUTH_STORAGE_KEY, user.id);
+  destination.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+  const otherDestination = rememberSession ? sessionStorage : localStorage;
+  otherDestination.removeItem(AUTH_STORAGE_KEY);
+  otherDestination.removeItem(AUTH_USER_STORAGE_KEY);
+}
+
+function removeAuthenticatedUser() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
+}
+
 function normalizeClient(input: RemoteClientInput, fallbackId: string): Client {
-  const razaoSocial = input.razaoSocial || input.nomeFantasia || '';
-  const nomeFantasia = input.nomeFantasia || input.razaoSocial || '';
+  const razaoSocial = String(input.razaoSocial || input.razao_social || input.nomeFantasia || input.nome_fantasia || '');
+  const nomeFantasia = String(input.nomeFantasia || input.nome_fantasia || input.razaoSocial || input.razao_social || razaoSocial || '');
 
   return {
     id: String(input.id ?? fallbackId),
+    codigo: String(input.codigo || ''),
     razaoSocial,
     nomeFantasia,
-    cnpj: input.cnpj || '',
-    endereco: input.endereco || '',
-    cidade: input.cidade || '',
-    estado: input.estado || '',
-    telefone: input.telefone || '',
-    email: input.email || '',
-    contato: input.contato || '',
+    cnpj: String(input.cnpj || ''),
+    endereco: String(input.endereco || ''),
+    cidade: String(input.cidade || ''),
+    estado: String(input.estado || ''),
+    telefone: String(input.telefone || ''),
+    email: String(input.email || ''),
+    contato: String(input.contato || ''),
     ativo: parseBoolean(input.ativo, true),
   };
 }
 
 function normalizeEquipment(input: RemoteEquipmentInput, fallbackId: string): Equipment {
+  const qrCode = String(input.qrCode || input.qr_code || `EQ-${String(input.id ?? fallbackId).padStart(3, '0')}`);
+  const clienteIdValue = input.clienteId ?? input.cliente_id ?? (input.clienteId === 0 ? 0 : '');
+
   return {
     id: String(input.id ?? fallbackId),
-    clienteId: String(input.clienteId || ''),
-    clienteNome: input.clienteNome || '',
-    descricao: input.descricao || '',
-    marca: input.marca || '',
-    modelo: input.modelo || '',
-    numeroSerie: input.numeroSerie || '',
-    localizacao: input.localizacao || '',
-    qrCode: input.qrCode || `EQ-${String(input.id ?? fallbackId).padStart(3, '0')}`,
+    clienteId: String(clienteIdValue),
+    clienteNome: String(input.clienteNome || input.cliente_nome || ''),
+    descricao: String(input.descricao || ''),
+    marca: String(input.marca || ''),
+    modelo: String(input.modelo || ''),
+    numeroSerie: String(input.numeroSerie || input.numero_serie || ''),
+    localizacao: String(input.localizacao || ''),
+    qrCode,
     ativo: parseBoolean(input.ativo, true),
   };
+}
+
+function normalizeVehicle(input: Vehicle, fallbackId: string): Vehicle {
+  return {
+    id: String(input.id ?? fallbackId),
+    descricao: String(input.descricao || ''),
+    placa: String(input.placa || ''),
+    modelo: String(input.modelo || ''),
+    ano: String(input.ano || ''),
+    ativo: parseBoolean(input.ativo, true),
+  };
+}
+
+function normalizeReport(input: RemoteReportInput, fallbackId: string): Report {
+  return {
+    id: String(input.id ?? fallbackId),
+    numero: String(input.numero || ''),
+    dataAbertura: String(input.dataAbertura || input.data_abertura || ''),
+    horaAbertura: String(input.horaAbertura || input.hora_abertura || ''),
+    tecnicoId: String(input.tecnicoId || ''),
+    tecnicoNome: String(input.tecnicoNome || ''),
+    tipoManutencao: (input.tipoManutencao as Report['tipoManutencao']) || (input.tipo_manutencao as Report['tipoManutencao']) || 'corretiva',
+    clienteId: String(input.clienteId || ''),
+    clienteNome: String(input.clienteNome || ''),
+    equipamentoId: String(input.equipamentoId || ''),
+    equipamentoDescricao: String(input.equipamentoDescricao || ''),
+    numeroSerie: String(input.numeroSerie || input.numero_serie || ''),
+    problemaRelatado: String(input.problemaRelatado || ''),
+    diagnostico: String(input.diagnostico || ''),
+    servicoExecutado: String(input.servicoExecutado || ''),
+    pecas: Array.isArray(input.pecas) ? input.pecas.map(part => ({
+      id: String(part.id || ''),
+      descricao: String(part.descricao || ''),
+      quantidade: Number(part.quantidade || 0),
+      observacao: String(part.observacao || ''),
+      origem: (part.origem as ReportPart['origem']) || 'avulso',
+      kitId: String(part.kitId || ''),
+      kitNome: String(part.kitNome || ''),
+    })) : [],
+    informacoesAdicionais: String(input.informacoesAdicionais || ''),
+    horasTrabalho: Number(input.horasTrabalho ?? 0),
+    deslocamentoIda: String(input.deslocamentoIda || ''),
+    deslocamentoVolta: String(input.deslocamentoVolta || ''),
+    checklistModelo: input.checklistModelo as Report['checklistModelo'] || undefined,
+    checklistStatus: input.checklistStatus as Report['checklistStatus'] || (input.checklist_status as Report['checklistStatus']) || 'pendente',
+    checklistRespostas: Array.isArray(input.checklistRespostas) ? input.checklistRespostas : Array.isArray((input as any).checklist_respostas) ? (input as any).checklist_respostas : [],
+    checklistObservacoesGerais: String(input.checklistObservacoesGerais || (input as any).checklist_observacoes_gerais || ''),
+    checklistCorretivas: Array.isArray(input.checklistCorretivas) ? input.checklistCorretivas : Array.isArray((input as any).checklist_corretivas) ? (input as any).checklist_corretivas : [],
+    checklistLinkExterno: String(input.checklistLinkExterno || (input as any).checklist_link_externo || ''),
+    checklistArquivoNome: String(input.checklistArquivoNome || (input as any).checklist_arquivo_nome || ''),
+    checklistArquivoUrl: String(input.checklistArquivoUrl || (input as any).checklist_arquivo_url || ''),
+    checklistCapaNome: String(input.checklistCapaNome || (input as any).checklist_capa_nome || ''),
+    checklistCapaUrl: String(input.checklistCapaUrl || (input as any).checklist_capa_url || ''),
+    veiculoId: String(input.veiculoId || ''),
+    veiculoDescricao: String(input.veiculoDescricao || ''),
+    placa: String(input.placa || ''),
+    pedagio: Number(input.pedagio ?? 0),
+    refeicao: Number(input.refeicao ?? 0),
+    estadia: Number(input.estadia ?? 0),
+    atendimentos: Array.isArray(input.atendimentos) ? input.atendimentos : [],
+    status: (input.status as Report['status']) || 'rascunho',
+    fotos: Array.isArray(input.fotos) ? input.fotos.map(photo => normalizeReportPhoto(photo, String(Date.now()), String(input.id || fallbackId))) : [],
+    criadoPor: String(input.criadoPor || ''),
+    editadoPor: String(input.editadoPor || ''),
+    dataFinalizacao: String(input.dataFinalizacao || ''),
+  };
+}
+
+async function getClientCodigoById(clientId: string): Promise<string> {
+  if (!clientId) return '';
+
+  const tableName = await getSupabaseClientTableName();
+  const { data, error } = await supabase.from(tableName).select('codigo').eq('id', clientId).single();
+  if (error || !data) return '';
+  return String((data as any).codigo || '');
 }
 
 function normalizeLegacyUserRole(role: unknown): User['perfil'] {
@@ -449,6 +621,53 @@ function hasSupabaseDataSource(): boolean {
   }
 }
 
+let supabaseClientTableName: string | null = null;
+let supabaseEquipmentTableName: string | null = null;
+
+async function getSupabaseClientTableName(): Promise<string> {
+  if (supabaseClientTableName) return supabaseClientTableName;
+
+  const preferred = 'clients';
+  const fallback = 'clientes';
+
+  const { error: preferredError } = await supabase.from(preferred).select('id').limit(1);
+  if (!preferredError) {
+    supabaseClientTableName = preferred;
+    return preferred;
+  }
+
+  const { error: fallbackError } = await supabase.from(fallback).select('id').limit(1);
+  if (!fallbackError) {
+    supabaseClientTableName = fallback;
+    return fallback;
+  }
+
+  supabaseClientTableName = preferred;
+  return preferred;
+}
+
+async function getSupabaseEquipmentTableName(): Promise<string> {
+  if (supabaseEquipmentTableName) return supabaseEquipmentTableName;
+
+  const preferred = 'equipments';
+  const fallback = 'equipamentos';
+
+  const { error: preferredError } = await supabase.from(preferred).select('id').limit(1);
+  if (!preferredError) {
+    supabaseEquipmentTableName = preferred;
+    return preferred;
+  }
+
+  const { error: fallbackError } = await supabase.from(fallback).select('id').limit(1);
+  if (!fallbackError) {
+    supabaseEquipmentTableName = fallback;
+    return fallback;
+  }
+
+  supabaseEquipmentTableName = preferred;
+  return preferred;
+}
+
 async function callAppsScript<T>(action: string, payload?: unknown): Promise<T> {
   const appsScriptUrl = getAppsScriptUrl();
 
@@ -540,6 +759,12 @@ function getStoredUserId(): string | null {
 function getAuthenticatedUser(): User | undefined {
   const storedUserId = getStoredUserId();
   if (!storedUserId) return undefined;
+
+  const storedUser = getStoredAuthUser();
+  if (storedUser && storedUser.id === storedUserId && storedUser.ativo) {
+    return storedUser;
+  }
+
   return mockUsers.find(user => user.id === storedUserId && user.ativo);
 }
 
@@ -555,6 +780,28 @@ export async function loginUser(email: string, password: string, rememberSession
   await delay(300);
 
   const normalizedIdentifier = email.trim().toLowerCase();
+
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('users').select('id, nome, email, perfil, ativo, senha').eq('email', normalizedIdentifier).single();
+      if (!error && data) {
+        const fetchedUser = data as any;
+        const validPassword = await verifyPassword(String(fetchedUser.senha || ''), password);
+        if (!validPassword) {
+          throw new Error('E-mail ou senha inválidos.');
+        }
+        if (!parseBoolean(fetchedUser.ativo, true)) {
+          throw new Error('Usuário bloqueado. Procure um administrador.');
+        }
+
+        const user = normalizeUser(fetchedUser, String(fetchedUser.id || ''));
+        persistAuthenticatedUser(user, rememberSession);
+        return user;
+      }
+    } catch {
+      // fallback to local auth
+    }
+  }
 
   let user = mockUsers.find(existingUser => existingUser.email.toLowerCase() === normalizedIdentifier);
 
@@ -579,29 +826,19 @@ export async function loginUser(email: string, password: string, rememberSession
     throw new Error('Usuário bloqueado. Procure um administrador.');
   }
 
-  if (typeof window !== 'undefined') {
-    if (rememberSession) {
-      localStorage.setItem(AUTH_STORAGE_KEY, user.id);
-      sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    } else {
-      sessionStorage.setItem(AUTH_STORAGE_KEY, user.id);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-  }
-
+  persistAuthenticatedUser(user, rememberSession);
   return user;
 }
 
 export function logoutUser() {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  removeAuthenticatedUser();
 }
 
 export async function getClients(): Promise<Client[]> {
   if (hasSupabaseDataSource()) {
     try {
-      const { data, error } = await supabase.from('clients').select('*');
+      const tableName = await getSupabaseClientTableName();
+      const { data, error } = await supabase.from(tableName).select('*');
       if (error) throw error;
       if (!Array.isArray(data)) return [];
       return data.map((client: any, index: number) => normalizeClient(client, String(index + 1)));
@@ -629,8 +866,11 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
   if (hasSupabaseDataSource()) {
     try {
       const payload = {
+        codigo: client.codigo || '',
         razaoSocial: client.razaoSocial || client.nomeFantasia || '',
         nomeFantasia: client.nomeFantasia || client.razaoSocial || '',
+        razao_social: client.razaoSocial || client.nomeFantasia || '',
+        nome_fantasia: client.nomeFantasia || client.razaoSocial || '',
         cnpj: client.cnpj || '',
         endereco: client.endereco || '',
         cidade: client.cidade || '',
@@ -641,7 +881,8 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
         ativo: client.ativo ?? true,
       } as any;
 
-      const { data, error } = await supabase.from('clients').insert([payload]).select();
+      const tableName = await getSupabaseClientTableName();
+      const { data, error } = await supabase.from(tableName).insert([payload]).select();
       if (error) throw error;
       if (Array.isArray(data) && data[0]) return normalizeClient(data[0], String(Date.now()));
     } catch {
@@ -668,6 +909,7 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
 
   const newClient: Client = {
     id: String(currentMaxId + 1),
+    codigo: client.codigo || '',
     razaoSocial: client.razaoSocial || client.nomeFantasia || '',
     nomeFantasia: client.nomeFantasia || client.razaoSocial || '',
     cnpj: client.cnpj || '',
@@ -687,7 +929,14 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
 export async function updateClient(clientId: string, updates: Partial<Client>): Promise<Client | undefined> {
   if (hasSupabaseDataSource()) {
     try {
-      const { data, error } = await supabase.from('clients').update(updates).eq('id', clientId).select();
+      const payload = {
+        ...updates,
+        razao_social: updates.razaoSocial || updates.nomeFantasia,
+        nome_fantasia: updates.nomeFantasia || updates.razaoSocial,
+      } as any;
+
+      const tableName = await getSupabaseClientTableName();
+      const { data, error } = await supabase.from(tableName).update(payload).eq('id', clientId).select();
       if (error) throw error;
       if (Array.isArray(data) && data[0]) return normalizeClient(data[0], clientId);
     } catch {
@@ -721,8 +970,14 @@ export async function setClientBlocked(clientId: string, blocked: boolean): Prom
 export async function getEquipments(clienteId?: string): Promise<Equipment[]> {
   if (hasSupabaseDataSource()) {
     try {
-      let query = supabase.from('equipments').select('*');
-      if (clienteId) query = query.eq('clienteId', clienteId);
+      const tableName = await getSupabaseEquipmentTableName();
+      let query = supabase.from(tableName).select('*');
+      if (clienteId) {
+        const parsedClienteId = Number(clienteId);
+        query = Number.isFinite(parsedClienteId)
+          ? query.eq('clienteId', parsedClienteId)
+          : query.eq('clienteId', clienteId);
+      }
       const { data, error } = await query;
       if (error) throw error;
       const normalized = Array.isArray(data) ? data.map((equipment: any, index: number) => normalizeEquipment(equipment, String(index + 1))) : [];
@@ -755,19 +1010,27 @@ export async function getEquipments(clienteId?: string): Promise<Equipment[]> {
 export async function saveEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
   if (hasSupabaseDataSource()) {
     try {
+      const clientCodigo = equipment.clienteId ? await getClientCodigoById(equipment.clienteId) : '';
+      const generatedQr = equipment.qrCode || `EQ-${String(Date.now())}`;
       const payload = {
+        codigo_equipamento: equipment.codigo_equipamento || `EQ-${String(Date.now())}`,
+        codigo_cliente: clientCodigo,
+        cliente_nome: equipment.clienteNome || '',
         clienteId: equipment.clienteId || '',
         clienteNome: equipment.clienteNome || '',
         descricao: equipment.descricao || '',
         marca: equipment.marca || '',
         modelo: equipment.modelo || '',
         numeroSerie: equipment.numeroSerie || '',
+        numero_serie: equipment.numeroSerie || '',
         localizacao: equipment.localizacao || '',
-        qrCode: equipment.qrCode || `EQ-${String(Date.now())}`,
+        qr_code: generatedQr,
+        qrCode: generatedQr,
         ativo: equipment.ativo ?? true,
       } as any;
 
-      const { data, error } = await supabase.from('equipments').insert([payload]).select();
+      const tableName = await getSupabaseEquipmentTableName();
+      const { data, error } = await supabase.from(tableName).insert([payload]).select();
       if (error) throw error;
       if (Array.isArray(data) && data[0]) return normalizeEquipment(data[0], String(Date.now()));
     } catch {
@@ -814,7 +1077,16 @@ export async function saveEquipment(equipment: Partial<Equipment>): Promise<Equi
 export async function updateEquipment(equipmentId: string, updates: Partial<Equipment>): Promise<Equipment | undefined> {
   if (hasSupabaseDataSource()) {
     try {
-      const { data, error } = await supabase.from('equipments').update(updates).eq('id', equipmentId).select();
+      const payload = { ...updates } as any;
+      if (updates.clienteId) {
+        const clientCodigo = await getClientCodigoById(updates.clienteId);
+        payload.codigo_cliente = clientCodigo;
+      }
+      if (updates.clienteNome) payload.cliente_nome = updates.clienteNome;
+      if (updates.numeroSerie) payload.numero_serie = updates.numeroSerie;
+
+      const tableName = await getSupabaseEquipmentTableName();
+      const { data, error } = await supabase.from(tableName).update(payload).eq('id', equipmentId).select();
       if (error) throw error;
       if (Array.isArray(data) && data[0]) return normalizeEquipment(data[0], equipmentId);
     } catch {
@@ -846,21 +1118,80 @@ export async function setEquipmentBlocked(equipmentId: string, blocked: boolean)
 }
 
 export async function getEquipmentByQrCode(qrCode: string): Promise<Equipment | undefined> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const query = supabase
+        .from('equipments')
+        .select('*')
+        .or(
+          `qr_code.eq.${qrCode},qrCode.eq.${qrCode},numero_serie.eq.${qrCode},numeroSerie.eq.${qrCode}`,
+        )
+        .limit(1);
+      const { data, error } = await query;
+      if (!error && Array.isArray(data) && data[0]) {
+        return normalizeEquipment(data[0], String(data[0].id || ''));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   return mockEquipments.find(e => e.qrCode === qrCode || e.numeroSerie === qrCode);
 }
 
 export async function getEquipmentHistory(equipamentoId: string): Promise<Report[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('reports').select('*').eq('equipamentoId', equipamentoId);
+      if (!error && Array.isArray(data)) {
+        return data.map((report: any, index: number) => normalizeReport(report, String(index + 1)));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   return mockReports.filter(r => r.equipamentoId === equipamentoId);
 }
 
 export async function getVehicles(): Promise<Vehicle[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('vehicles').select('*');
+      if (error) throw error;
+      if (Array.isArray(data)) {
+        return data.map((vehicle: any, index: number) => normalizeVehicle(vehicle, String(index + 1)));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   return [...mockVehicles];
 }
 
 export async function saveVehicle(vehicle: Partial<Vehicle>): Promise<Vehicle> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = {
+        descricao: vehicle.descricao || '',
+        placa: vehicle.placa || '',
+        modelo: vehicle.modelo || '',
+        ano: vehicle.ano || '',
+        ativo: vehicle.ativo ?? true,
+      } as any;
+
+      const { data, error } = await supabase.from('vehicles').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeVehicle(data[0], String(Date.now()));
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(500);
 
   const currentMaxId = mockVehicles.reduce((max, v) => {
@@ -883,17 +1214,51 @@ export async function saveVehicle(vehicle: Partial<Vehicle>): Promise<Vehicle> {
 }
 
 export async function getPartKits(): Promise<PartKit[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('part_kits').select('*');
+      if (error) throw error;
+      if (Array.isArray(data)) {
+        return data.map((kit: any, index: number) => normalizePartKit(kit, String(index + 1)));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(200);
   return getStoredPartKits();
 }
 
 export async function savePartKit(kit: Partial<PartKit>): Promise<PartKit> {
-  await delay(300);
-
   if (!kit.tecnicoId || !kit.tecnicoNome) {
     throw new Error('Selecione o técnico responsável pelo kit.');
   }
 
+  const newKit = normalizePartKit({ ...kit, id: String(Date.now()) }, String(Date.now()));
+
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = {
+        nome: newKit.nome,
+        descricao: newKit.descricao,
+        tecnicoId: newKit.tecnicoId,
+        tecnicoNome: newKit.tecnicoNome,
+        pecas: newKit.pecas,
+        ativo: newKit.ativo ?? true,
+      } as any;
+
+      const { data, error } = await supabase.from('part_kits').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) {
+        return normalizePartKit(data[0], String(data[0].id || String(Date.now())));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  await delay(300);
   const kits = getStoredPartKits();
   const currentMaxId = kits.reduce((max, item) => {
     const parsedId = Number.parseInt(item.id, 10);
@@ -901,16 +1266,28 @@ export async function savePartKit(kit: Partial<PartKit>): Promise<PartKit> {
     return Math.max(max, parsedId);
   }, 0);
 
-  const newKit = normalizePartKit({ ...kit, id: String(currentMaxId + 1) }, String(currentMaxId + 1));
-
-  kits.unshift(newKit);
+  const createdKit = normalizePartKit({ ...kit, id: String(currentMaxId + 1) }, String(currentMaxId + 1));
+  kits.unshift(createdKit);
   persistPartKits(kits);
-  return newKit;
+  return createdKit;
 }
 
 export async function updatePartKit(kitId: string, updates: Partial<PartKit>): Promise<PartKit | undefined> {
-  await delay(300);
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = {
+        ...updates,
+        pecas: updates.pecas,
+      } as any;
+      const { data, error } = await supabase.from('part_kits').update(payload).eq('id', kitId).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizePartKit(data[0], kitId);
+    } catch {
+      // fallback
+    }
+  }
 
+  await delay(300);
   const kits = getStoredPartKits();
   const index = kits.findIndex(item => item.id === kitId);
   if (index < 0) return undefined;
@@ -929,8 +1306,17 @@ export async function updatePartKit(kitId: string, updates: Partial<PartKit>): P
 }
 
 export async function deletePartKit(kitId: string): Promise<boolean> {
-  await delay(200);
+  if (hasSupabaseDataSource()) {
+    try {
+      const { error } = await supabase.from('part_kits').delete().eq('id', kitId);
+      if (error) throw error;
+      return true;
+    } catch {
+      // fallback
+    }
+  }
 
+  await delay(200);
   const kits = getStoredPartKits();
   const nextKits = kits.filter(item => item.id !== kitId);
   if (nextKits.length === kits.length) return false;
@@ -940,6 +1326,17 @@ export async function deletePartKit(kitId: string): Promise<boolean> {
 }
 
 export async function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Promise<Vehicle | undefined> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const payload = { ...updates } as any;
+      const { data, error } = await supabase.from('vehicles').update(payload).eq('id', vehicleId).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeVehicle(data[0], vehicleId);
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(500);
 
   const index = mockVehicles.findIndex(vehicle => vehicle.id === vehicleId);
@@ -954,6 +1351,21 @@ export async function setVehicleBlocked(vehicleId: string, blocked: boolean): Pr
 }
 
 export async function getReports(filters?: { status?: ReportStatus; tecnicoId?: string }): Promise<Report[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      let query = supabase.from('reports').select('*');
+      if (filters?.status) query = query.eq('status', filters.status);
+      if (filters?.tecnicoId) query = query.eq('tecnicoId', filters.tecnicoId);
+      const { data, error } = await query;
+      if (error) throw error;
+      if (Array.isArray(data)) {
+        return data.map((report: any, index: number) => normalizeReport(report, String(index + 1)));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   let results = [...mockReports];
   if (filters?.status) results = results.filter(r => r.status === filters.status);
@@ -962,52 +1374,152 @@ export async function getReports(filters?: { status?: ReportStatus; tecnicoId?: 
 }
 
 export async function getReportById(id: string): Promise<Report | undefined> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('reports').select('*').eq('id', id).single();
+      if (error) throw error;
+      if (data) return normalizeReport(data, id);
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   return mockReports.find(r => r.id === id);
 }
 
+async function persistKitStockChanges(kits: PartKit[]): Promise<void> {
+  if (hasSupabaseDataSource()) {
+    await Promise.all(kits.map(async (kit) => {
+      await updatePartKit(kit.id, { pecas: kit.pecas });
+    }));
+  } else {
+    persistPartKits(kits);
+  }
+}
+
 export async function saveReport(report: Partial<Report>): Promise<Report> {
-  await delay(500);
   const activeUser = getCurrentUser();
   const now = new Date();
-
-  const kitsSnapshot = clonePartKits(getStoredPartKits());
   const nextParts = Array.isArray(report.pecas) ? report.pecas : [];
+  const kitsSnapshot = clonePartKits(await getPartKits());
+
+  let previousParts: ReportPart[] = [];
+  if (report.id) {
+    const existing = await getReportById(report.id);
+    previousParts = Array.isArray(existing?.pecas) ? existing!.pecas : [];
+  }
+
+  if (previousParts.length > 0) {
+    applyKitStockChange(kitsSnapshot, previousParts, 1);
+  }
+  applyKitStockChange(kitsSnapshot, nextParts, -1);
+  await persistKitStockChanges(kitsSnapshot);
+
+  const payload = {
+    numero: report.numero || '',
+    dataAbertura: report.dataAbertura || now.toISOString().split('T')[0],
+    horaAbertura: report.horaAbertura || now.toTimeString().slice(0, 5),
+    tecnicoId: report.tecnicoId || activeUser.id,
+    tecnicoNome: report.tecnicoNome || activeUser.nome,
+    tipoManutencao: report.tipoManutencao || 'corretiva',
+    clienteId: report.clienteId || '',
+    clienteNome: report.clienteNome || '',
+    equipamentoId: report.equipamentoId || '',
+    equipamentoDescricao: report.equipamentoDescricao || '',
+    numeroSerie: report.numeroSerie || '',
+    problemaRelatado: report.problemaRelatado || '',
+    diagnostico: report.diagnostico || '',
+    servicoExecutado: report.servicoExecutado || '',
+    pecas: nextParts,
+    informacoesAdicionais: report.informacoesAdicionais || '',
+    horasTrabalho: report.horasTrabalho ?? 0,
+    deslocamentoIda: report.deslocamentoIda || '',
+    deslocamentoVolta: report.deslocamentoVolta || '',
+    checklistModelo: report.checklistModelo || null,
+    checklistStatus: report.checklistStatus || 'pendente',
+    checklistRespostas: report.checklistRespostas || [],
+    checklistObservacoesGerais: report.checklistObservacoesGerais || '',
+    checklistCorretivas: report.checklistCorretivas || [],
+    checklistLinkExterno: report.checklistLinkExterno || '',
+    checklistArquivoNome: report.checklistArquivoNome || '',
+    checklistArquivoUrl: report.checklistArquivoUrl || '',
+    checklistCapaNome: report.checklistCapaNome || '',
+    checklistCapaUrl: report.checklistCapaUrl || '',
+    veiculoId: report.veiculoId || '',
+    veiculoDescricao: report.veiculoDescricao || '',
+    placa: report.placa || '',
+    pedagio: report.pedagio ?? 0,
+    refeicao: report.refeicao ?? 0,
+    estadia: report.estadia ?? 0,
+    atendimentos: report.atendimentos || [],
+    status: report.status || 'rascunho',
+    fotos: report.fotos || [],
+    criadoPor: report.criadoPor || activeUser.nome,
+    editadoPor: report.editadoPor || (report.id ? activeUser.nome : ''),
+    dataFinalizacao: report.dataFinalizacao || '',
+  } as any;
+
+  if (hasSupabaseDataSource()) {
+    try {
+      if (report.id) {
+        const { data, error } = await supabase.from('reports').update(payload).eq('id', report.id).select();
+        if (error) throw error;
+        if (Array.isArray(data) && data[0]) return normalizeReport(data[0], report.id);
+      }
+
+      const countResult = await supabase.from('reports').select('id', { count: 'exact', head: true });
+      const nextNumber = typeof countResult.count === 'number' ? countResult.count + 1 : 1;
+      payload.numero = payload.numero || `RAT-${now.getFullYear()}-${String(nextNumber).padStart(4, '0')}`;
+      const { data, error } = await supabase.from('reports').insert([payload]).select();
+      if (error) throw error;
+      if (Array.isArray(data) && data[0]) return normalizeReport(data[0], String(data[0].id || nextNumber));
+    } catch {
+      // fallback
+    }
+  }
+
+  await delay(500);
+  const activeUserName = activeUser.nome;
 
   if (report.id) {
     const index = mockReports.findIndex(r => r.id === report.id);
     if (index >= 0) {
-      const previousParts = Array.isArray(mockReports[index].pecas) ? mockReports[index].pecas : [];
-      applyKitStockChange(kitsSnapshot, previousParts, 1);
-      applyKitStockChange(kitsSnapshot, nextParts, -1);
-
-      persistPartKits(kitsSnapshot);
-      mockReports[index] = { ...mockReports[index], ...report, editadoPor: activeUser.nome };
+      mockReports[index] = { ...mockReports[index], ...report, editadoPor: activeUserName } as Report;
       return mockReports[index];
     }
   }
 
-  applyKitStockChange(kitsSnapshot, nextParts, -1);
-  persistPartKits(kitsSnapshot);
-
   const newReport: Report = {
     id: String(mockReports.length + 1),
-    numero: `RAT-${now.getFullYear()}-${String(mockReports.length + 1).padStart(4, '0')}`,
-    dataAbertura: now.toISOString().split('T')[0],
-    horaAbertura: now.toTimeString().slice(0, 5),
-    status: 'rascunho',
-    fotos: [],
-    pecas: [],
-    criadoPor: activeUser.nome,
-    editadoPor: '',
+    numero: report.numero || `RAT-${now.getFullYear()}-${String(mockReports.length + 1).padStart(4, '0')}`,
+    dataAbertura: report.dataAbertura || now.toISOString().split('T')[0],
+    horaAbertura: report.horaAbertura || now.toTimeString().slice(0, 5),
+    status: report.status || 'rascunho',
+    fotos: report.fotos || [],
+    pecas: nextParts,
+    criadoPor: report.criadoPor || activeUserName,
+    editadoPor: report.editadoPor || '',
     ...report,
   } as Report;
+
   mockReports.push(newReport);
   return newReport;
 }
 
 export async function getReportPhotos(reportId: string): Promise<ReportPhoto[]> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    try {
+      const { data, error } = await supabase.from('reports').select('fotos').eq('id', reportId).single();
+      if (!error && data && Array.isArray((data as any).fotos)) {
+        return ((data as any).fotos as any[]).map((photo, index) => normalizeReportPhoto(photo, String(index + 1), reportId));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  if (hasRemoteDataSource()) {
     try {
       const remotePhotos = await callAppsScript<RemoteReportPhotoInput[]>('getReportPhotos', { reportId });
       if (!Array.isArray(remotePhotos)) return [];
@@ -1025,7 +1537,24 @@ export async function uploadReportPhoto(
   reportId: string,
   photo: { dataUrl: string; categoria: ReportPhoto['categoria']; descricao: string },
 ): Promise<ReportPhoto> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    const newPhoto = {
+      id: String(Date.now()),
+      relatorioId: reportId,
+      url: photo.dataUrl,
+      categoria: photo.categoria,
+      descricao: photo.descricao,
+    } as ReportPhoto;
+
+    const existingReport = await getReportById(reportId);
+    if (existingReport) {
+      const updatedPhotos = [...(existingReport.fotos || []), newPhoto];
+      await saveReport({ ...existingReport, fotos: updatedPhotos });
+    }
+    return newPhoto;
+  }
+
+  if (hasRemoteDataSource()) {
     const remotePhoto = await callAppsScript<RemoteReportPhotoInput>('uploadPhoto', {
       reportId,
       categoria: photo.categoria,
@@ -1048,7 +1577,16 @@ export async function uploadReportPhoto(
 }
 
 export async function deleteReportPhoto(reportId: string, photoId: string, driveFileId?: string): Promise<void> {
-  if (hasRemoteDataSource) {
+  if (hasSupabaseDataSource()) {
+    const existingReport = await getReportById(reportId);
+    const updatedPhotos = (existingReport?.fotos || []).filter(photo => photo.id !== photoId);
+    if (existingReport) {
+      await saveReport({ ...existingReport, fotos: updatedPhotos });
+    }
+    return;
+  }
+
+  if (hasRemoteDataSource()) {
     await callAppsScript<null>('deletePhoto', { reportId, photoId, driveFileId });
   }
 
@@ -1085,18 +1623,28 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function saveUser(user: Partial<User> & { password: string }): Promise<User> {
+  if (getCurrentUser().perfil !== 'admin') {
+    throw new Error('Apenas administradores podem cadastrar novos usuários.');
+  }
+
+  const normalizedEmail = normalizeEmail(user.email);
+  if (!normalizedEmail) {
+    throw new Error('E-mail é obrigatório.');
+  }
+
   if (hasSupabaseDataSource()) {
     try {
       if (!user.password || user.password.length < 6) {
         throw new Error('Senha inválida. A senha deve ter pelo menos 6 caracteres.');
       }
 
+      const senhaHash = await hashPassword(user.password);
       const payload = {
         nome: user.nome || '',
         email: (user.email || '').trim().toLowerCase(),
         perfil: normalizeLegacyUserRole(user.perfil),
         ativo: user.ativo ?? true,
-        senha: user.password,
+        senha: senhaHash,
       } as any;
 
       const { data, error } = await supabase.from('users').insert([payload]).select();
@@ -1147,7 +1695,6 @@ export async function saveUser(user: Partial<User> & { password: string }): Prom
     throw new Error('Senha inválida. A senha deve ter pelo menos 6 caracteres.');
   }
 
-  const normalizedEmail = (user.email || '').trim().toLowerCase();
   if (!normalizedEmail) {
     throw new Error('E-mail é obrigatório.');
   }
@@ -1180,10 +1727,20 @@ export async function updateUser(
   updates: Partial<User>,
   newPassword?: string,
 ): Promise<User | undefined> {
+  if (updates.email) {
+    updates.email = normalizeEmail(updates.email);
+  }
+
   if (hasSupabaseDataSource()) {
     try {
       const payload = { ...updates } as any;
       if (typeof payload.email === 'string') payload.email = payload.email.trim().toLowerCase();
+      if (newPassword) {
+        if (newPassword.length < 6) {
+          throw new Error('Senha inválida. A senha deve ter pelo menos 6 caracteres.');
+        }
+        payload.senha = await hashPassword(newPassword);
+      }
 
       const { data, error } = await supabase.from('users').update(payload).eq('id', userId).select();
       if (error) throw error;
@@ -1262,6 +1819,10 @@ export async function updateUser(
 }
 
 export async function setUserBlocked(userId: string, blocked: boolean): Promise<User | undefined> {
+  if (hasSupabaseDataSource()) {
+    return updateUser(userId, { ativo: !blocked });
+  }
+
   if (hasRemoteDataSource()) {
     try {
       const updatedUser = await callAppsScript<RemoteUserInput | null>('setUserBlocked', { userId, blocked });
@@ -1292,6 +1853,25 @@ export function getCurrentCNPJ(): string {
 }
 
 export async function searchReports(query: string): Promise<Report[]> {
+  if (hasSupabaseDataSource()) {
+    try {
+      const q = query.trim();
+      if (!q) return [];
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .or(
+          `numero.ilike.%${q}%,clienteNome.ilike.%${q}%,numeroSerie.ilike.%${q}%,equipamentoDescricao.ilike.%${q}%`,
+        )
+        .limit(50);
+      if (!error && Array.isArray(data)) {
+        return data.map((report: any, index: number) => normalizeReport(report, String(index + 1)));
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   await delay(300);
   const q = query.toLowerCase();
   return mockReports.filter(r =>

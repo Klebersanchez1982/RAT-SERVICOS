@@ -105,6 +105,10 @@ Se você quiser usar Supabase (Postgres gerenciado) como backend em vez dos mock
 - Clique **Run** (triângulo verde)
 - Pronto! As tabelas foram criadas
 
+> Nota: a tabela `users` armazena a senha em forma de hash SHA-256. No frontend, o usuário continua digitando a senha normal ao entrar.
+
+> Para zerar a base e deixar apenas um administrador, execute `sql/reset_supabase_base.sql` no SQL Editor do Supabase.
+
 ### 5. Importar dados iniciais
 - Vá em **Table Editor** (lado esquerdo)
 - Clique na tabela `clients`

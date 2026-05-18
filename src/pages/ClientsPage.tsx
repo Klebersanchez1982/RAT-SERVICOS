@@ -27,15 +27,10 @@ export default function ClientsPage() {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formClient, setFormClient] = useState({
-    nomeFantasia: "",
+    codigo: "",
     razaoSocial: "",
-    cnpj: "",
     cidade: "",
     estado: "",
-    telefone: "",
-    contato: "",
-    email: "",
-    endereco: "",
     ativo: true,
   });
 
@@ -45,15 +40,10 @@ export default function ClientsPage() {
 
   function resetForm() {
     setFormClient({
-      nomeFantasia: "",
+      codigo: "",
       razaoSocial: "",
-      cnpj: "",
       cidade: "",
       estado: "",
-      telefone: "",
-      contato: "",
-      email: "",
-      endereco: "",
       ativo: true,
     });
   }
@@ -69,15 +59,10 @@ export default function ClientsPage() {
     if (!canManageClients) return;
     setEditingClientId(client.id);
     setFormClient({
-      nomeFantasia: client.nomeFantasia,
+      codigo: client.codigo,
       razaoSocial: client.razaoSocial,
-      cnpj: client.cnpj,
       cidade: client.cidade,
       estado: client.estado,
-      telefone: client.telefone,
-      contato: client.contato,
-      email: client.email,
-      endereco: client.endereco,
       ativo: client.ativo,
     });
     setIsDialogOpen(true);
@@ -95,10 +80,10 @@ export default function ClientsPage() {
       return;
     }
 
-    if (!formClient.nomeFantasia.trim() || !formClient.cnpj.trim()) {
+    if (!formClient.codigo.trim() || !formClient.razaoSocial.trim()) {
       toast({
         title: "Dados obrigatórios",
-        description: "Preencha pelo menos Nome Fantasia e CNPJ.",
+        description: "Preencha Código e Razão Social.",
         variant: "destructive",
       });
       return;
@@ -108,15 +93,11 @@ export default function ClientsPage() {
       setIsSaving(true);
       if (isEditing && editingClientId) {
         const updated = await updateClient(editingClientId, {
-          nomeFantasia: formClient.nomeFantasia,
+          codigo: formClient.codigo,
           razaoSocial: formClient.razaoSocial,
-          cnpj: formClient.cnpj,
+          nomeFantasia: formClient.razaoSocial,
           cidade: formClient.cidade,
           estado: formClient.estado,
-          telefone: formClient.telefone,
-          contato: formClient.contato,
-          email: formClient.email,
-          endereco: formClient.endereco,
           ativo: formClient.ativo,
         });
 
@@ -135,11 +116,18 @@ export default function ClientsPage() {
           description: `${updated.nomeFantasia} foi atualizado com sucesso.`,
         });
       } else {
-        const created = await saveClient(formClient);
+        const created = await saveClient({
+          codigo: formClient.codigo,
+          razaoSocial: formClient.razaoSocial,
+          nomeFantasia: formClient.razaoSocial,
+          cidade: formClient.cidade,
+          estado: formClient.estado,
+          ativo: formClient.ativo,
+        });
         setClients(prev => [created, ...prev]);
         toast({
           title: "Cliente criado",
-          description: `${created.nomeFantasia} foi adicionado com sucesso.`,
+          description: `${created.razaoSocial} foi adicionado com sucesso.`,
         });
       }
 
@@ -190,8 +178,8 @@ export default function ClientsPage() {
 
   const displayedClients = useMemo(() => {
     const filtered = clients.filter(c =>
-      c.nomeFantasia.toLowerCase().includes(search.toLowerCase()) ||
-      c.cnpj.includes(search)
+      c.codigo.toLowerCase().includes(search.toLowerCase()) ||
+      c.razaoSocial.toLowerCase().includes(search.toLowerCase())
     );
 
     return [...filtered].sort((a, b) => {
@@ -216,15 +204,15 @@ export default function ClientsPage() {
             <Card key={c.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold">{c.nomeFantasia}</h3>
+                  <div>
+                    <h3 className="font-semibold">{c.razaoSocial}</h3>
+                    <p className="text-xs text-muted-foreground">Código: {c.codigo}</p>
+                  </div>
                   <Badge variant={c.ativo ? "default" : "destructive"}>{c.ativo ? "Ativo" : "Inativo"}</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">{c.razaoSocial}</p>
                 <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-muted-foreground">
-                  <span>CNPJ: {c.cnpj}</span>
                   <span>{c.cidade}/{c.estado}</span>
-                  <span>{c.telefone}</span>
-                  <span>{c.contato}</span>
+                  <span>&nbsp;</span>
                 </div>
                 <div className="flex items-center gap-2 mt-3">
                   {canManageClients && (
@@ -256,20 +244,12 @@ export default function ClientsPage() {
             <form className="space-y-4" onSubmit={handleSaveClient}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="nomeFantasia">Nome Fantasia *</Label>
-                  <Input id="nomeFantasia" value={formClient.nomeFantasia} onChange={e => handleFieldChange("nomeFantasia", e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cnpj">CNPJ *</Label>
-                  <Input id="cnpj" value={formClient.cnpj} onChange={e => handleFieldChange("cnpj", formatCnpj(e.target.value))} />
+                  <Label htmlFor="codigo">Código *</Label>
+                  <Input id="codigo" value={formClient.codigo} onChange={e => handleFieldChange("codigo", e.target.value)} />
                 </div>
                 <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="razaoSocial">Razão Social</Label>
+                  <Label htmlFor="razaoSocial">Razão Social *</Label>
                   <Input id="razaoSocial" value={formClient.razaoSocial} onChange={e => handleFieldChange("razaoSocial", e.target.value)} />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="endereco">Endereço</Label>
-                  <Input id="endereco" value={formClient.endereco} onChange={e => handleFieldChange("endereco", e.target.value)} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="cidade">Cidade</Label>
@@ -278,18 +258,6 @@ export default function ClientsPage() {
                 <div className="space-y-1">
                   <Label htmlFor="estado">UF</Label>
                   <Input id="estado" maxLength={2} value={formClient.estado} onChange={e => handleFieldChange("estado", e.target.value.toUpperCase())} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="telefone">Telefone</Label>
-                  <Input id="telefone" value={formClient.telefone} onChange={e => handleFieldChange("telefone", formatPhoneBr(e.target.value))} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="contato">Contato</Label>
-                  <Input id="contato" value={formClient.contato} onChange={e => handleFieldChange("contato", e.target.value)} />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" value={formClient.email} onChange={e => handleFieldChange("email", e.target.value)} />
                 </div>
               </div>
 

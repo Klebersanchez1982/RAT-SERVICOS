@@ -37,6 +37,7 @@ export interface User {
 
 export interface Client {
   id: string;
+  codigo: string;
   razaoSocial: string;
   nomeFantasia: string;
   cnpj: string;

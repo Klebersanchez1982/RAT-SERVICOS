@@ -288,19 +288,9 @@ export default function UsersPage() {
                   <Badge variant="secondary">{roleLabels[u.perfil]}</Badge>
                   <Badge variant={u.ativo ? "default" : "destructive"}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
                   {canManageUsers && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(u)}>
-                        <Pencil className="h-3.5 w-3.5 mr-1" />Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={u.ativo ? "destructive" : "outline"}
-                        onClick={() => handleToggleBlocked(u)}
-                      >
-                        {u.ativo ? <Lock className="h-3.5 w-3.5 mr-1" /> : <LockOpen className="h-3.5 w-3.5 mr-1" />}
-                        {u.ativo ? "Bloquear" : "Desbloquear"}
-                      </Button>
-                    </>
+                    <Button size="sm" variant="outline" onClick={() => openEditDialog(u)}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />Editar
+                    </Button>
                   )}
                 </div>
               </CardContent>

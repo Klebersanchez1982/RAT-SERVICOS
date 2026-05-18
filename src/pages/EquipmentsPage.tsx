@@ -107,6 +107,15 @@ export default function EquipmentsPage() {
       return;
     }
 
+    if (!formEquipment.clienteId) {
+      toast({
+        title: "Cliente obrigatório",
+        description: "Selecione um cliente antes de salvar o equipamento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSaving(true);
       if (isEditing && editingEquipmentId) {
@@ -266,7 +275,7 @@ export default function EquipmentsPage() {
                   <Input id="numeroSerie" value={formEquipment.numeroSerie} onChange={e => handleFieldChange("numeroSerie", e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="clienteNome">Cliente</Label>
+                  <Label htmlFor="clienteNome">Cliente *</Label>
                   <Select
                     value={formEquipment.clienteId || "sem-cliente"}
                     onValueChange={(value) => {
